@@ -1,27 +1,79 @@
 -- skill_system.lua
 local skynet = require "skynet"
-local ElementManager = require "element_manager"
+
+local EventConsumer = require "event.event_consumer"
+local EventDef = require "event.event_def"
 
 local SkillSystem = {}
 SkillSystem.__index = SkillSystem
 
-function SkillSystem:new(skill_names, elemMgr)
-    local obj = setmetatable({}, self)
+function SkillSystem:new(combatant, elemMgr)
+    -- 调用父类构造函数
+    local obj = setmetatable(EventConsumer:new() or {}, self)
+    self.__index = self
+
+    -- 初始化属性
     obj.elemMgr = elemMgr
+    obj.owner = combatant
     obj.skills = {}
-    obj.casting = nil -- 当前施法中的数据
-    for _, sn in ipairs(skill_names or {}) do
-        local def = obj.elemMgr:getSkillDefinition(sn)
-        if def then
-            obj.skills[sn] = {
-                name = sn, cd_left = 0, definition = def
-            }
-        end
+
+    -- 加载技能
+    if combatant and type(combatant.skills) == "table" then
+        obj:loadSkills(combatant.skills)
+    else
+        skynet.error("[SkillSystem:new] Invalid or missing combatant.skills =》", type(combatant.skills))
     end
+
     return obj
 end
 
-function SkillSystem:update(dt)
+function SkillSystem:loadSkills(skill_names)
+    -- 检查 skill_names 是否为有效表
+    if type(skill_names) ~= "table" then
+        skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [None]",
+            tostring(self.owner and self.owner.id or "Unknown")))
+        return
+    end
+
+    -- 打印技能列表
+    local skill_names_str = table.concat(skill_names, ", ")
+    skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
+        tostring(self.owner and self.owner.id or "Unknown"), skill_names_str))
+
+    -- 加载技能
+    for _, sn in ipairs(skill_names) do
+        local def = self.elemMgr and self.elemMgr.getSkillDefinition and self.elemMgr:getSkillDefinition(sn)
+        if def then
+            self.skills[sn] = {
+                name = sn,
+                cd_left = 0,
+                definition = def,
+                casting = nil
+            }
+            skynet.error(string.format("[SkillSystem:loadSkills] Loaded Skill: %s", sn))
+        else
+            skynet.error(string.format("[SkillSystem:loadSkills] Skill definition not found for: %s", sn))
+        end
+    end
+end
+
+-- 订阅事件
+function SkillSystem:onRegisterToBattle(battle)
+    -- 订阅 BATTLE_TICK
+    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+    -- 如果想监听 SKILL_CAST等也可以
+end
+
+-- 事件回调
+function SkillSystem:onEvent(eventType, eventData)
+    skynet.error("[SkillSystem] onEvent =>", eventType)
+    if eventType == EventDef.EVENT_BATTLE_TICK then
+        self:onTick(eventData.battle)
+    end
+end
+
+function SkillSystem:onTick(battle)
+    local dt = battle.tickInterval
     -- 冷却递减
     for _, s in pairs(self.skills) do
         if s.cd_left > 0 then
@@ -57,7 +109,7 @@ function SkillSystem:is_interrupted(caster)
     return false
 end
 
-function SkillSystem:cast(skill_name, caster, battlefield)
+function SkillSystem:cast(skill_name, caster)
     local sdata = self.skills[skill_name]
     if not sdata then return false, "No skill" end
     if sdata.cd_left > 0 then return false, "CDing" end
@@ -74,7 +126,7 @@ function SkillSystem:cast(skill_name, caster, battlefield)
     self.casting = {
         skill_name = skill_name,
         caster = caster,
-        battlefield = battlefield,
+        battlefield = caster.battle,
         timer = ct,
         break_on_stun = break_on_stun,
     }

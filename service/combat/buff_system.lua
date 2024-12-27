@@ -1,6 +1,10 @@
 -- buff_system.lua
 local skynet = require "skynet"
+
+local EventConsumer = require "event.event_consumer"
+local EventDef = require "event.event_def"
 local ElementManager = require "element_manager"
+local damage_calc = require "damage_calc"
 
 local BuffSystem = {}
 BuffSystem.__index = BuffSystem
@@ -14,7 +18,22 @@ function BuffSystem:new(owner, elemMgr)
     return obj
 end
 
-function BuffSystem:update(dt)
+function BuffSystem:onRegisterToBattle(battle)
+    -- 订阅事件: DAMAGE, BATTLE_TICK
+    battle:subscribeEvent(EventDef.EVENT_DAMAGE, self)
+    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+end
+
+function BuffSystem:onEvent(eventType, eventData)
+    if eventType == EventDef.EVENT_DAMAGE then
+        self:onDamageEvent(eventData)
+    elseif eventType == EventDef.EVENT_BATTLE_TICK then
+        self:onTick(eventData)
+    end
+end
+
+function BuffSystem:onTick(eventData)
+    local dt = eventData.battle.tickInterval
     for buff_id, buffData in pairs(self.buffs) do
         buffData.remaining = buffData.remaining - dt
         if buffData.remaining <= 0 then
@@ -28,6 +47,36 @@ function BuffSystem:update(dt)
                         self.elemMgr:runEffect(eff, buffData.caster, self.owner, buffData.definition)
                         buffData.tick_timers[eff] = eff.tick_interval or 1
                     end
+                end
+            end
+        end
+    end
+end
+
+function BuffSystem:onDamageEvent(evt)
+    -- evt={ battle, source, target, dmgInfo }
+    if evt.target == self.owner then
+        -- self.owner受到伤害
+        local di = evt.dmgInfo
+        -- 先计算实际伤害
+        local real = damage_calc:applyDamage {
+            source = evt.source,
+            target = self.owner,
+            amount = di.amount,
+            damage_type = di.damage_type,
+            origin_type = di.origin_type,
+            is_reflect = di.is_reflect,
+            no_lifesteal = di.no_lifesteal,
+            no_spell_amp = di.no_spell_amp
+        }
+        di.dealt = real
+        -- 伤害完成后, Buff检查onDamageTaken
+        for _, buff in pairs(self.buffs) do
+            for _, eff in ipairs(buff.definition.effects or {}) do
+                if eff.trigger == "onDamageTaken" then
+                    buff.tempDamageInfo = di
+                    self.elemMgr:runEffect(eff, evt.source, self.owner, buff.definition)
+                    buff.tempDamageInfo = nil
                 end
             end
         end

@@ -7,7 +7,7 @@ local AttributeSystem = require "attribute_system"
 local Combatant = {}
 Combatant.__index = Combatant
 
-function Combatant:new(entity_id, entity_data, elemMgr)
+function Combatant:new(entity_id, entity_data, elemMgr, battle)
     local obj = setmetatable({}, self)
     obj.id = entity_id
     local baseAttr = {
@@ -24,12 +24,24 @@ function Combatant:new(entity_id, entity_data, elemMgr)
         end
     end
     obj.attr = AttributeSystem:new(baseAttr)
-
+    obj.battle = battle
+    obj.skills = entity_data.skills
     obj.elemMgr = elemMgr
     obj.buffsys = BuffSystem:new(obj, elemMgr)
-    obj.skillSys = SkillSystem:new(entity_data.skills, elemMgr)
+    obj.skillSys = SkillSystem:new(obj, elemMgr)
 
     obj.type = entity_data.type or "Hero"
+
+
+    obj.onRegisterToBattle = function(self, battle)
+        if self.skillSys and type(self.skillSys.onRegisterToBattle) == "function" then
+            self.skillSys:onRegisterToBattle(battle)
+        end
+        if self.buffsys and type(self.buffsys.onRegisterToBattle) == "function" then
+            self.buffsys:onRegisterToBattle(battle)
+        end
+    end
+
     return obj
 end
 
@@ -57,8 +69,8 @@ function Combatant:calculate_damage(rawDamage, damage_type, target)
 end
 
 -- 手动释放
-function Combatant:release_skill(skill_name, battlefield)
-    return self.skillSys:cast(skill_name, self, battlefield)
+function Combatant:release_skill(skill_name)
+    return self.skillSys:cast(skill_name, self)
 end
 
 -- 自动施法

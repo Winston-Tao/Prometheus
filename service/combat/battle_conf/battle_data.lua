@@ -2,7 +2,7 @@
 local battle_data = {}
 
 ---------------------------
--- 1. Effect Definitions
+-- 1. Effect Definitions -- 路由策略
 ---------------------------
 battle_data.effect_definitions = {
     hurt = {},             -- 独立文件：effects/hurt.lua
@@ -140,6 +140,65 @@ battle_data.buff_definitions = {
         }
     },
     -- 也可继续定义 StunDebuff, SilenceDebuff 等...
+
+    ["ThornBuff"] = {
+        duration = 9999,
+        effects = {
+            {
+                effect_type = "summon_creature",
+                trigger = "onApply",
+                creature_name = "ThornMonster",
+                inherit_percent = 100
+            },
+            {
+                effect_type = "hurt",
+                trigger = "onAttack", --扇形攻击,可再custom
+                base_damage = 50
+            },
+            {
+                effect_type = "modify_attribute",
+                trigger = "onApply",
+                attr = "MaxHP",
+                value = 45, -- +45% ...
+            },
+            {
+                effect_type = "hpDrainPerSec", -- ...
+            },
+            {
+                effect_type = "apply_buff", --苦痛附身
+                trigger = "onCast",
+                buff_name = "PainBuff"
+            }
+        }
+    },
+    ["PainBuff"] = {
+        duration = 2,
+        effects = {
+            {
+                effect_type = "modify_attribute",
+                trigger = "onApply",
+                attr = "CanMove",
+                value = -1
+            },
+            {
+                effect_type = "hurt",
+                trigger = "onTick",
+                damage_type = "physical",
+                base_damage_factor = 1.4
+            }
+        }
+    },
+    ["YadonCloudBuff"] = {
+        duration = 6,
+        effects = {
+            {
+                effect_type = "lightningStrike",
+                trigger = "onTick",
+                tick_interval = 1,
+                damage_percent = 0.5
+            }
+        }
+    }
 }
 
 ---------------------------
@@ -245,6 +304,31 @@ battle_data.skill_definitions = {
             }
         }
     },
+    -- 荆棘
+    ["ThornSkill"] = {
+        cooldown = 10,
+        mana_cost = 20,
+        is_auto = false,
+        buffs = {
+            {
+                target_strategy = "self",
+                buff_name = "ThornBuff"
+            }
+        }
+    },
+
+    -- 雅顿"
+    ["YadonSkill"] = {
+        cooldown = 12,
+        mana_cost = 50,
+        is_auto = false,
+        buffs = {
+            {
+                target_strategy = "selectArea",
+                buff_name = "YadonCloudBuff"
+            }
+        }
+    }
 }
 
 ---------------------------
@@ -259,6 +343,9 @@ battle_data.strategy_definitions = {
     },
     self = {
         script_file = "self"
+    },
+    selectArea = {
+        script_file = "select_area"
     }
 }
 

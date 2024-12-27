@@ -1,32 +1,35 @@
 -- combat_manager.lua
 -- combat_manager.lua
 local skynet = require "skynet"
-local ElementManager = require "element_manager"
 local Combatant = require "combat.combatant"
 local damage_calc = require "damage_calc"
-
+local Battle = require "battle"
 
 local CombatManager = {}
 CombatManager.__index = CombatManager
 
-function CombatManager:new()
+function CombatManager:new(manager_id)
     local obj = setmetatable({}, self)
-    obj.elemMgr = ElementManager:new()
+    obj.manager_id = manager_id -- 唯一编号
     obj.battles = {}
     obj.next_battle_id = 1
     return obj
 end
 
-function CombatManager:create_battle()
+function CombatManager:createBattle(mapSize)
     local bid = self.next_battle_id
     self.next_battle_id = bid + 1
-    self.battles[bid] = {
-        id = bid,
-        combatants = {},
-        is_active = false
-    }
-    skynet.error("[CombatManager] create battle:", bid)
-    return bid
+    local battle = Battle:new(bid, mapSize)
+    self.battles[bid] = battle
+    return battle
+end
+
+function CombatManager:getBattle(bid)
+    return self.battles[bid]
+end
+
+function CombatManager:removeBattle(bid)
+    self.battles[bid] = nil
 end
 
 function CombatManager:add_combatant(battle_id, entity_id, entity_data)
@@ -121,55 +124,56 @@ end
 
 -- 手动施法
 function CombatManager:release_skill(battle_id, caster_id, skill_name, target_id)
-    local b = self.battles[battle_id]
-    if not b then return end
-
-    local caster, target
-    for _, c in ipairs(b.combatants) do
-        if tostring(c.id) == tostring(caster_id) then
-            caster = c
-        end
-        if tostring(c.id) == tostring(target_id) then
-            target = c
-        end
-    end
-    if not caster then
-        skynet.error("[CombatManager] no caster", caster_id)
-        return
-    end
-    local can, msg = caster:release_skill(skill_name, b)
-    if can then
-        skynet.error("[CombatManager] manual skill success:", skill_name, "by", caster_id)
-    else
-        skynet.error("[CombatManager] manual skill fail:", skill_name, msg)
-    end
+    skynet.error("[DEBUG] bid222:", battle_id, caster_id, skill_name, target_id)
+    local battle = self:getBattle(battle_id);
+    battle:release_skill(caster_id, skill_name, target_id)
 end
 
---------------------------------------------------------------------------------
+--------------------------------------
+-- Skynet service part
+--------------------------------------
 local CMD = {}
-function CMD.create_battle(mgr, ...)
-    local bid = mgr:create_battle(...)
-    skynet.retpack(bid)
+
+function CMD.init(mgr, manager_id)
+    mgr.manager_id = manager_id
 end
 
-function CMD.add_combatant(mgr, battle_id, entity_id, entity_data)
-    local r = mgr:add_combatant(battle_id, entity_id, entity_data)
-    skynet.retpack(r)
+function CMD.create_battle(mgr, mapSize)
+    local b = mgr:createBattle(mapSize)
+    skynet.retpack(b.id)
+end
+
+function CMD.add_combatant(mgr, bid, cdata)
+    local battle = mgr:getBattle(bid)
+    if not battle then return nil end
+    local c = battle:addCombatant(cdata)
+    skynet.retpack(c.id)
 end
 
 function CMD.start_battle(mgr, bid)
-    mgr:start_battle(bid)
-    skynet.ret()
+    local b = mgr:getBattle(bid)
+    if b then
+        b:start()
+        skynet.retpack("ok")
+    else
+        skynet.retpack("fail")
+    end
 end
 
-function CMD.release_skill(mgr, bid, casterid, sn, targetid)
-    mgr:release_skill(bid, casterid, sn, targetid)
-    skynet.ret()
+function CMD.destroy_battle(mgr, bid)
+    mgr:removeBattle(bid)
+    skynet.retpack("ok")
+end
+
+function CMD.release_skill(mgr, battle_id, caster_id, skill_name, target_id)
+    skynet.error("[DEBUG] bid111:", battle_id, caster_id, skill_name, target_id)
+    mgr:release_skill(battle_id, caster_id, skill_name, target_id)
+    skynet.retpack("ok")
 end
 
 --------------------------------------------------------------------------------
 skynet.start(function()
-    local manager = CombatManager:new()
+    local manager = CombatManager:new(nil)
     -- 注册自己到router
     skynet.send(".serverRouter", "lua", "register_service", "combat_manager", skynet.self())
     skynet.error("combat_manager-register_service-success")
