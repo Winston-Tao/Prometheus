@@ -4,6 +4,7 @@ local skynet = require "skynet"
 local Combatant = require "combat.combatant"
 local damage_calc = require "damage_calc"
 local Battle = require "battle"
+local logger = require "battle_logger"
 
 local CombatManager = {}
 CombatManager.__index = CombatManager
@@ -173,6 +174,7 @@ end
 
 --------------------------------------------------------------------------------
 skynet.start(function()
+    logger.init() -- 初始化日志系统
     local manager = CombatManager:new(nil)
     -- 注册自己到router
     skynet.send(".serverRouter", "lua", "register_service", "combat_manager", skynet.self())

@@ -2,6 +2,7 @@
 local skynet = require "skynet"
 require "skynet.manager" -- import skynet.register
 local service_manager = require "service_manager"
+local logger = require "battle_logger"
 
 skynet.error("package.path=", package.path)
 skynet.error("package.cpath=", package.cpath)
@@ -101,6 +102,9 @@ skynet.start(function()
     else
         skynet.error("[INFO] Service 'server_router' started successfully with handle:", router)
     end
+
+    -- 启动战斗日志服务
+    logger.init() -- 初始化日志系统
 
     -- 启动多个 combat_manager
     for i = 1, 2 do

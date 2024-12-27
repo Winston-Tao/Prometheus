@@ -4,6 +4,7 @@ local EventDispatcher = require "event.event_dispatcher"
 local EventDef        = require "event.event_def"
 local Combatant       = require "combat.combatant"
 local ElementManager  = require "element_manager"
+local logger          = require "battle_logger"
 
 local Battle          = {}
 Battle.__index        = Battle
@@ -17,7 +18,7 @@ function Battle:new(battle_id, mapSize)
 
     obj.eventDispatcher = EventDispatcher:new("sync")
     obj.tickInterval = 1 -- 1秒
-
+    logger.debug("Battle", "create", obj)
     return obj
 end
 
