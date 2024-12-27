@@ -1,0 +1,9 @@
+{
+  "scenes": [
+    {
+      "scene_id": 1001,
+      "conf_id": "default_scene_conf",
+      "name": "TestScene"
+    }
+  ]
+}
