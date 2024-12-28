@@ -1,0 +1,267 @@
+-- logger/file_handler.lua
+
+local skynet        = require "skynet"
+local LogHandler    = require "logger.log_handler"
+local FileHandler   = setmetatable({}, { __index = LogHandler })
+FileHandler.__index = FileHandler
+
+function FileHandler:new(formatter, level, fileName)
+    local obj = LogHandler:new(formatter, level)
+    setmetatable(obj, self)
+    obj.fileName = fileName or "logs/game.log"
+    obj.file = io.open(obj.fileName, "a")
+    return obj
+end
+
+function FileHandler:write(line)
+    if self.file then
+        self.file:write(line, "\n")
+        self.file:flush()
+    end
+end
+
+function FileHandler:close()
+    if self.file then
+        self.file:close()
+        self.file = nil
+    end
+end
+
+return FileHandler
+-- logger/log_event.lua
+-- 每条日志可用结构化数据来存储
+local skynet = require "skynet"
+
+local LogEvent = {}
+LogEvent.__index = LogEvent
+
+-- todo 取堆栈应该有性能问题，后续再看看有没有其他方式
+function LogEvent:new(level, message, tags, data)
+    -- 获取调用栈信息（栈深为 3，因为 LogEvent:new 通常是被 log 调用的）
+    local debug_info = debug.getinfo(5, "nSl")
+
+    -- 初始化 LogEvent 对象
+    local obj = setmetatable({}, self)
+    obj.level = level             -- (LogLevel.*)
+    obj.message = message         -- string
+    obj.tags = tags or {}         -- { "battle", "buff", "damage" ...}
+    obj.data = data or {}         -- table for extra fields
+    obj.timestamp = skynet.time() -- or os.time()
+
+    -- 自动填充调用信息
+    obj.file = debug_info.short_src or "unknown" -- 文件名
+    obj.line = debug_info.currentline or -1      -- 行号
+    obj.func = debug_info.name or "anonymous"    -- 函数名
+
+    return obj
+end
+
+return LogEvent
+-- logger/log_formatter.lua
+-- 为了避免 Lua 字符串频繁拼接性能问题，采用 table buffer + table.concat 的方式。
+
+local LogFormatter = {}
+LogFormatter.__index = LogFormatter
+
+function LogFormatter:new()
+    return setmetatable({}, self)
+end
+
+-- 自定义递归序列化：将 table 转为可读字符串
+local function serializeTable(val, indent, visited)
+    if type(val) ~= "table" then
+        return tostring(val)
+    end
+
+    if visited[val] then
+        return "<circular reference>"
+    end
+    visited[val] = true
+
+    indent = indent or 0
+    local buffer = {}
+    local indentStr = string.rep("  ", indent)
+
+    table.insert(buffer, "{\n")
+    for k, v in pairs(val) do
+        table.insert(buffer, indentStr .. "  " .. tostring(k) .. " = ")
+        if type(v) == "table" then
+            local sub = serializeTable(v, indent + 1, visited)
+            table.insert(buffer, sub)
+        else
+            table.insert(buffer, tostring(v))
+        end
+        table.insert(buffer, ",\n")
+    end
+    table.insert(buffer, indentStr .. "}")
+    return table.concat(buffer)
+end
+
+local function formatTimestamp(ts)
+    local sec     = math.floor(ts)
+    local msec    = math.floor((ts - sec) * 1000)
+    local dateStr = os.date("%Y-%m-%d %H:%M:%S", sec)
+    return string.format("%s.%03d", dateStr, msec)
+end
+
+-- 将 event (LogEvent) 转为字符串
+function LogFormatter:formatEvent(event)
+    -- event 是一个表: { level, timestamp, message, tags, data }
+    local buffer = {}
+    local dateTimeStr = formatTimestamp(event.timestamp or 0)
+    table.insert(buffer, dateTimeStr)
+    if event.file or event.line or event.func then
+        local src = string.format("[%s:%s:%s]",
+            event.file or "?", event.line or "?", event.func or "?")
+        table.insert(buffer, ", location=" .. src)
+    end
+    table.insert(buffer, " [LogEvent] level=" .. tostring(event.level))
+    table.insert(buffer, ", timestamp=" .. tostring(event.timestamp))
+    table.insert(buffer, ", message=" .. tostring(event.message))
+
+    -- tags
+    if event.tags and #event.tags > 0 then
+        local tagsStr = serializeTable(event.tags, 0, {})
+        table.insert(buffer, ", tags=" .. tagsStr)
+    end
+
+    -- data
+    if event.data then
+        local dataStr = serializeTable(event.data, 0, {})
+        table.insert(buffer, ", data=" .. dataStr)
+    end
+
+    return table.concat(buffer)
+end
+
+return LogFormatter
+-- logger/log_handler.lua
+local LogHandler   = {}
+LogHandler.__index = LogHandler
+local skynet       = require "skynet"
+
+function LogHandler:new(formatter, level)
+    local obj = setmetatable({}, self)
+    obj.formatter = formatter
+    obj.minLevel = level or 10 -- default: DEBUG
+    return obj
+end
+
+-- sync write
+function LogHandler:emit(event)
+    if event.level < self.minLevel then
+        return
+    end
+    local line = self.formatter:formatEvent(event)
+    self:write(line)
+end
+
+function LogHandler:write(line)
+    print(line)
+end
+
+return LogHandler
+-- logger/log_level.lua
+local LogLevel = {
+    DEBUG    = 10,
+    INFO     = 20,
+    WARNING  = 30,
+    ERROR    = 40,
+    CRITICAL = 50
+}
+return LogLevel
+-- logger/log_manager.lua
+local LogEvent     = require "logger.log_event"
+local LogLevel     = require "logger.log_level"
+local LogFormatter = require "logger.log_formatter"
+
+local LogManager   = {}
+LogManager.__index = LogManager
+
+function LogManager:new()
+    local obj = setmetatable({}, self)
+    obj.defaultLevel = LogLevel.DEBUG
+    obj.formatter = LogFormatter:new()
+    obj.handlers = {}
+    return obj
+end
+
+function LogManager:addHandler(handler)
+    table.insert(self.handlers, handler)
+end
+
+function LogManager:log(level, message, tags, data)
+    local event = LogEvent:new(level, message, tags, data)
+    for _, h in ipairs(self.handlers) do
+        h:emit(event)
+    end
+end
+
+-- 常用封装
+function LogManager:debug(msg, tags, data)
+    self:log(LogLevel.DEBUG, msg, tags, data)
+end
+
+function LogManager:info(msg, tags, data)
+    self:log(LogLevel.INFO, msg, tags, data)
+end
+
+function LogManager:warn(msg, tags, data)
+    self:log(LogLevel.WARNING, msg, tags, data)
+end
+
+function LogManager:error(msg, tags, data)
+    self:log(LogLevel.ERROR, msg, tags, data)
+end
+
+function LogManager:critical(msg, tags, data)
+    self:log(LogLevel.CRITICAL, msg, tags, data)
+end
+
+return LogManager
+-- logger/log_storage.lua
+-- 轮转示例,基于文件大小or每天一文件, 仅示例,实务可更强大
+
+local LogStorage = {}
+LogStorage.__index = LogStorage
+
+function LogStorage:new(basePath, maxSize)
+    local obj = setmetatable({}, self)
+    obj.basePath = basePath or "./logs/log"
+    obj.maxSize = maxSize or (5 * 1024 * 1024)
+    obj.currentFileName = obj:genFileName()
+    obj.file = io.open(obj.currentFileName, "a")
+    return obj
+end
+
+function LogStorage:genFileName()
+    local t = os.date("%Y%m%d_%H%M%S")
+    return string.format("%s_%s.log", self.basePath, t)
+end
+
+function LogStorage:append(line)
+    if not self.file then
+        self.file = io.open(self.currentFileName, "a")
+    end
+    self.file:write(line, "\n")
+    if self.file:seek() >= self.maxSize then
+        self:rollover()
+    end
+end
+
+function LogStorage:rollover()
+    self.file:flush()
+    self.file:close()
+    self.currentFileName = self:genFileName()
+    self.file = io.open(self.currentFileName, "a")
+end
+
+function LogStorage:close()
+    if self.file then
+        self.file:flush()
+        self.file:close()
+        self.file = nil
+    end
+end
+
+return LogStorage

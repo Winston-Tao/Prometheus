@@ -1,7 +1,7 @@
 -- logger/file_handler.lua
 
-local skynet        = require "skynet"
-local LogHandler    = require "logger.log_handler"
+local LogHandler = require "log_handler"
+assert(type(LogHandler) == "table", "LogHandler is not a valid module")
 local FileHandler   = setmetatable({}, { __index = LogHandler })
 FileHandler.__index = FileHandler
 

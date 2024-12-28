@@ -1,10 +1,10 @@
 -- combat_manager.lua
--- combat_manager.lua
 local skynet = require "skynet"
 local Combatant = require "combat.combatant"
 local damage_calc = require "damage_calc"
 local Battle = require "battle"
 local logger = require "battle_logger"
+local hotlogger = require "hot_update_logger"
 
 local CombatManager = {}
 CombatManager.__index = CombatManager
@@ -172,9 +172,29 @@ function CMD.release_skill(mgr, battle_id, caster_id, skill_name, target_id)
     skynet.retpack("ok")
 end
 
+-- 热更接口
+function CMD.hotfix(modules)
+    hotlogger.error(string.format("[SubscriberService] Received hotfix for modules: %s", table.concat(modules, ", ")))
+    for _, module_name in ipairs(modules) do
+        package.loaded[module_name] = nil
+        local ok, mod = pcall(require, module_name)
+        if ok then
+            hotlogger.info(string.format("[SubscriberService] Successfully reloaded module: %s", module_name))
+        else
+            hotlogger.error(string.format("[SubscriberService] Failed to reload module: %s, error: %s", module_name, mod))
+        end
+    end
+end
+
+-- 订阅热更服务
+function CMD.subscribe_to_hotfix()
+    local status, result = pcall(skynet.call, ".hotfix_service", "lua", "subscribe", skynet.self())
+    hotlogger.info("[SubscriberService] Subscribed to hotfix service.", "subscribe_to_hotfix",
+        { status = status, result = result })
+end
+
 --------------------------------------------------------------------------------
 skynet.start(function()
-    logger.init() -- 初始化日志系统
     local manager = CombatManager:new(nil)
     -- 注册自己到router
     skynet.send(".serverRouter", "lua", "register_service", "combat_manager", skynet.self())
@@ -188,6 +208,8 @@ skynet.start(function()
             skynet.ret()
         end
     end)
+    -- 启动时自动订阅热更服务
+    CMD.subscribe_to_hotfix()
 
     skynet.error("[combat_manager] Service started.")
 end)

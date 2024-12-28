@@ -82,7 +82,12 @@ function Battle:addCombatant(combatant)
 
     -- 调用 `onRegisterToBattle`
     realCom:onRegisterToBattle(self)
-    logger.debug("[Battle] addCombatant", "battle", realCom)
+    logger.debug("[Battle] addCombatant", "battle", {
+        id = realCom.id,
+        type = realCom.type,
+        attributes = realCom.ttributes,
+        skills = realCom.skills,
+    })
     return realCom
 end
 
@@ -105,13 +110,15 @@ function Battle:release_skill(caster_id, skill_name, target_id)
     end
     local can, msg = caster:release_skill(skill_name)
     if can then
-        logger.error("[Battle] release_skill success", "battle", {
+        logger.debug("[Battle] release_skill success", "battle", {
             caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
         })
     else
-        logger.error("[Battle] release_skill fail", "battle", {
-            caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
-        })
+        if msg ~= "CDing" then
+            logger.info("[Battle] release_skill fail", "battle", {
+                caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
+            })
+        end
     end
 end
 
