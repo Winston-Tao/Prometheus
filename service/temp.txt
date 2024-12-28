@@ -1,0 +1,24 @@
+-- log_formatter.lua (仅展示需要修改的代码部分)
+
+-- 在 event 中增加 file / line / module 等字段，以便记录日志来源
+-- 需要在 event 处 (或 logger 调用处) 设置 event.file = "xxx", event.line = 123, event.module = "xxx"
+
+-- 新增函数 formatTimestamp() 用于将 skynet.time() 转成可读 24小时时间
+local function formatTimestamp(ts)
+    local sec  = math.floor(ts)
+    local msec = math.floor((ts - sec) * 1000)
+    local dateStr = os.date("%Y-%m-%d %H:%M:%S", sec)
+    return string.format("%s.%03d", dateStr, msec)
+end
+
+-- 在 formatEvent(event) 中，替换原先的 timestamp 输出逻辑:
+local buffer = {}
+local dateTimeStr = formatTimestamp(event.timestamp or 0)
+table.insert(buffer, ", timestamp=" .. dateTimeStr)
+
+-- 若 event.file / event.line / event.module 存在，则追加:
+if event.file or event.line or event.module then
+    local src = string.format("[%s:%s:%s]",
+        event.module or "?", event.file or "?", event.line or "?")
+    table.insert(buffer, ", location=" .. src)
+end
