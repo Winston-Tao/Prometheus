@@ -54,7 +54,7 @@ skynet.start(function()
 
     skynet.fork(function()
         while true do
-            skynet.sleep(100)
+            skynet.sleep(100 * 15)
             skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "PhysicalAttack", enemy_id)
             skynet.error("[battle_logic] hero cast FireAndHeal => enemy & self")
             skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "FireAndHeal", enemy_id)

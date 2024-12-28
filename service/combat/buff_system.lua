@@ -1,12 +1,11 @@
 -- buff_system.lua
-local skynet = require "skynet"
+local skynet       = require "skynet"
 
-local EventConsumer = require "event.event_consumer"
-local EventDef = require "event.event_def"
-local ElementManager = require "element_manager"
-local damage_calc = require "damage_calc"
+local EventDef     = require "event.event_def"
+local damage_calc  = require "damage_calc"
+local logger       = require "battle_logger"
 
-local BuffSystem = {}
+local BuffSystem   = {}
 BuffSystem.__index = BuffSystem
 
 function BuffSystem:new(owner, elemMgr)

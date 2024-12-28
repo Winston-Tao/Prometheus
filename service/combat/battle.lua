@@ -93,6 +93,9 @@ end
 
 -- 手动施法
 function Battle:release_skill(caster_id, skill_name, target_id)
+    logger.info("[Battle] try to release_skill", "battle", {
+        caster_id = caster_id, skill_name = skill_name
+    })
     local caster, target
     for _, c in ipairs(self.combatants) do
         if tostring(c.id) == tostring(caster_id) then
@@ -103,23 +106,24 @@ function Battle:release_skill(caster_id, skill_name, target_id)
         end
     end
     if not caster then
-        logger.debug("[Battle] release_skill no caster", "battle", {
+        logger.error("[Battle] release_skill no caster", "battle", {
             caster_id = caster_id, skill_name = skill_name, target_id = target_id
         })
         return
     end
-    local can, msg = caster:release_skill(skill_name)
-    if can then
-        logger.debug("[Battle] release_skill success", "battle", {
-            caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
-        })
-    else
-        if msg ~= "CDing" then
-            logger.info("[Battle] release_skill fail", "battle", {
-                caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
-            })
-        end
-    end
+    caster:release_skill(skill_name)
+    --local ok, msg = caster:release_skill(skill_name)
+    --if ok then
+    --    logger.info("[Battle] release_skill success", "battle", {
+    --        caster_id = caster_id, skill_name = skill_name
+    --    })
+    --else
+    --if msg ~= "CDing" then
+    --    logger.info("[Battle] release_skill skip", "battle", {
+    --        caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
+    --    })
+    --end
+    --end
 end
 
 -- 对外伤害接口 => 发布伤害事件

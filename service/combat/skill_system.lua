@@ -1,10 +1,11 @@
 -- skill_system.lua
-local skynet = require "skynet"
+local skynet        = require "skynet"
 
 local EventConsumer = require "event.event_consumer"
-local EventDef = require "event.event_def"
+local EventDef      = require "event.event_def"
+local logger        = require "battle_logger"
 
-local SkillSystem = {}
+local SkillSystem   = {}
 SkillSystem.__index = SkillSystem
 
 function SkillSystem:new(combatant, elemMgr)
@@ -111,17 +112,25 @@ end
 
 function SkillSystem:cast(skill_name, caster)
     local sdata = self.skills[skill_name]
-    if not sdata then return false, "No skill" end
+    if not sdata then
+        logger.error("[SkillSystem] release_skill fail: No skill", "battle", {
+            caster_id = caster.id, skill_name = skill_name
+        })
+        return false, "No skill"
+    end
     if sdata.cd_left > 0 then return false, "CDing" end
     local def = sdata.definition
     if caster.attr:get("MP") < (def.mana_cost or 0) then
+        logger.info("[SkillSystem] release_skill fail: NoMP", "battle", {
+            caster_id = caster.id, skill_name = skill_name
+        })
         return false, "NoMP"
     end
 
     -- 前摇 cast_time
     local ct = def.cast_time or 0
     local break_on_stun = (def.break_on_stun ~= false) -- 默认被stun打断
-    skynet.error(string.format("[SkillSystem] start cast skill=%s ct=%.2f", skill_name, ct))
+
     -- 施法过程
     self.casting = {
         skill_name = skill_name,
