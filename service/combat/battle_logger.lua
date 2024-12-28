@@ -18,6 +18,9 @@ function logger.init()
     logMgr:addHandler(fileHandler)
 end
 
+--- msg 描述日志的主要内容，应简单明了。
+--- tags 为日志添加分类信息，用于快速过滤和检索。
+--- data 存储上下文信息和详细数据，用于调试和分析。
 function logger.debug(msg, tags, data)
     if logMgr then
         logMgr:debug(msg, tags, data)

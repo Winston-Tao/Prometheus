@@ -34,7 +34,7 @@ function Battle:start()
         while self.is_active do
             skynet.sleep(self.tickInterval * 100)
             -- 发布 BATTLE_TICK 事件
-            skynet.error("[battle] publish EventDef.EVENT_BATTLE_TICK.")
+            logger.debug("[battle] publish EventDef.EVENT_BATTLE_TICK.", "battle")
             self.eventDispatcher:publish(EventDef.EVENT_BATTLE_TICK, { battle = self })
             self:checkEnd()
         end
@@ -60,15 +60,16 @@ function Battle:checkEnd()
 
     -- 打印 HP 信息
     for id, info in pairs(hpInfo) do
-        skynet.error(string.format("[Battle] Combatant ID: %s, Type: %s, HP: %d", id, info.type, info.hp))
+        logger.debug(string.format("[Battle] Combatant ID: %s, Type: %s, HP: %d", id, info.type, info.hp), "battle",
+            self.id)
     end
 
     -- 检查战斗是否结束
     if (not heroAlive) or (not enemyAlive) then
         self.is_active = false
-        skynet.error(string.format("[Battle] end => %s", self.id))
+        logger.debug("[Battle] end =>", "battle", self.id)
     else
-        skynet.error("[Battle] checkEnd false")
+        logger.debug("[Battle] checkEnd false =>", "battle", self.id)
     end
 end
 
@@ -81,7 +82,7 @@ function Battle:addCombatant(combatant)
 
     -- 调用 `onRegisterToBattle`
     realCom:onRegisterToBattle(self)
-
+    logger.debug("[Battle] addCombatant", "battle", realCom)
     return realCom
 end
 
@@ -97,14 +98,20 @@ function Battle:release_skill(caster_id, skill_name, target_id)
         end
     end
     if not caster then
-        skynet.error("[CombatManager] no caster", caster_id)
+        logger.debug("[Battle] release_skill no caster", "battle", {
+            caster_id = caster_id, skill_name = skill_name, target_id = target_id
+        })
         return
     end
     local can, msg = caster:release_skill(skill_name)
     if can then
-        skynet.error("[CombatManager] manual skill success:", skill_name, "by", caster_id)
+        logger.error("[Battle] release_skill success", "battle", {
+            caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
+        })
     else
-        skynet.error("[CombatManager] manual skill fail:", skill_name, msg)
+        logger.error("[Battle] release_skill fail", "battle", {
+            caster_id = caster_id, skill_name = skill_name, msg = msg, target_id = target_id
+        })
     end
 end
 
