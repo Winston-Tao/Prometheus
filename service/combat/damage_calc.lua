@@ -6,7 +6,7 @@ local damage_calc = {}
 -- 核心函数:
 --   damage_calc:applyDamage(damageInfo)
 -- damageInfo包含:
---   source, target, amount, damage_type, is_reflect, no_lifesteal, no_spell_amp, ...
+--   source, target, amount, damage_type, no_reflect, no_lifesteal, no_spell_amp, ...
 --   由 effect / buff 调用, 并最终修改 target HP
 
 function damage_calc:applyDamage(dmg)
@@ -15,8 +15,14 @@ function damage_calc:applyDamage(dmg)
         return 0
     end
 
+    local real = 0
     -- 2) 计算具体减伤, block,闪避...
-    local real = (dmg.base_damage_factor or 1) * (dmg.source.attr:get("NT") or 100)
+    -- todo 细分攻击类型 伤害应该按照攻击类型对对应模块计算 模块化 这里就先简单写下了
+    if dmg.reflectDmg then
+        real = dmg.reflectDmg
+    else
+        real = (dmg.base_damage_factor or 1) * (dmg.source.attr:get("NT") or 100)
+    end
     if dmg.damage_type == "physical" then
         -- armor
         local armor = dmg.target.attr:get("Armor") or 0
@@ -45,9 +51,8 @@ function damage_calc:applyDamage(dmg)
         dmg.source.attr:modify("HP", heal)
     end
 
-    -- 5) 伤害反射标记 is_reflect: 不再二次反射
+    -- 5) 伤害反射标记 no_reflect: 不再二次反射
     -- ...
-
     logger.info("[damage_calc] applyDamage finish!", "", {
         source_id = dmg.source.id,
         target_id = dmg.target.id,

@@ -85,7 +85,7 @@ function CombatManager:applyDamage(source, target, rawDamage, dmgType, originTyp
         amount = rawDamage,
         damage_type = dmgType,
         origin_type = originType or "attack",
-        is_reflect = false,
+        no_reflect = false,
         no_lifesteal = false,
         no_spell_amp = false,
         dealt = 0 --实际造成多少

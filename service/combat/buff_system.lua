@@ -23,7 +23,7 @@ end
 
 function BuffSystem:onEvent(eventType, eventData)
     if eventType == EventDef.EVENT_ACCEPT_DAMAGE then
-        self:onDamageEvent(eventData)
+        self:onAcceptDamageEvent(eventData)
     elseif eventType == EventDef.EVENT_BATTLE_TICK then
         self:onTick(eventData)
     end
@@ -52,7 +52,7 @@ function BuffSystem:onTick(eventData)
     end
 end
 
-function BuffSystem:onDamageEvent(evt)
+function BuffSystem:onAcceptDamageEvent(evt)
     logger.info("[BuffSystem] onAcceptDamageEvent:", "", {
         accept_id = self.owner.id,
         dmgInfo = evt.dmgInfo
@@ -61,23 +61,27 @@ function BuffSystem:onDamageEvent(evt)
     -- self.owner受到伤害
     local di = evt.dmgInfo
     -- 先计算实际伤害
-    local real = damage_calc:applyDamage {
+    local originDamage = {
         source = evt.source,
         target = self.owner,
         base_damage_factor = di.base_damage_factor,
         damage_type = di.damage_type,
-        is_reflect = di.is_reflect,
+        no_reflect = di.no_reflect,
         no_lifesteal = di.no_lifesteal,
-        no_spell_amp = di.no_spell_amp
+        no_spell_amp = di.no_spell_amp,
+        reflectDmg = di.reflectDmg
     }
-    di.dealt = real
+    local realDamage = damage_calc:applyDamage(originDamage)
+    originDamage.real = realDamage
+    di.dealt = realDamage
     -- 伤害完成后, Buff检查onDamageTaken
-    -- todo 这里需要检查 is_reflect no_lifesteal no_spell_amp 比如不能再执行反弹的effect
+    -- todo 这里需要检查 no_reflect no_lifesteal no_spell_amp 比如不能再执行反弹的effect
     for _, buff in pairs(self.buffs) do
         for _, eff in ipairs(buff.definition.effects or {}) do
+            -- todo 传参后续再优化下 被事件触发的 effect 应该有更优雅的传参方式，默认effect就能取到触发事件更好，这里先写死了
             if eff.trigger == "onDamageTaken" then
                 buff.tempDamageInfo = di
-                --self.elemMgr:runEffect(eff, evt.source, self.owner, buff.definition)
+                self.elemMgr:runEffect(eff, evt.source, self.owner, buff.definition, originDamage)
                 buff.tempDamageInfo = nil
             end
         end
