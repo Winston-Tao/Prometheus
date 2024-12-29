@@ -25,6 +25,9 @@ local function serializeTable(val, indent, visited)
 
     table.insert(buffer, "{\n")
     for k, v in pairs(val) do
+        if k == "file" or k == "func" or k == "line" then
+            goto continue
+        end
         table.insert(buffer, indentStr .. "  " .. tostring(k) .. " = ")
         if type(v) == "table" then
             local sub = serializeTable(v, indent + 1, visited)
@@ -33,6 +36,7 @@ local function serializeTable(val, indent, visited)
             table.insert(buffer, tostring(v))
         end
         table.insert(buffer, ",\n")
+        ::continue::
     end
     table.insert(buffer, indentStr .. "}")
     return table.concat(buffer)

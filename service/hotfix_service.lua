@@ -57,7 +57,7 @@ end
 -- 热更服务启动
 -- skynet.call(hotfix_service, "lua", "trigger", {"battle"})
 -- call 0100000b  "trigger", {"battle", "combat_manager"}
---call 0100000c  "trigger", {"battle", "combat_manager"}
+-- call 0100000c  "trigger", {"battle", "skill_system"}
 skynet.start(function()
     skynet.dispatch("lua", function(_, source, cmd, ...)
         hotlogger.debug(string.format("[HotfixService] execute command: %s", cmd))

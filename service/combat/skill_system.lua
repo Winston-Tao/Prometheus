@@ -22,24 +22,29 @@ function SkillSystem:new(combatant, elemMgr)
     if combatant and type(combatant.skills) == "table" then
         obj:loadSkills(combatant.skills)
     else
-        skynet.error("[SkillSystem:new] Invalid or missing combatant.skills =》", type(combatant.skills))
+        logger.error("[SkillSystem:new] Invalid or missing combatant.skills =》", type(combatant.skills))
     end
-
+    logger.info("[SkillSystem:new] combatant SkillSystem init", "battle", {
+        id = combatant.id
+    })
     return obj
 end
 
 function SkillSystem:loadSkills(skill_names)
     -- 检查 skill_names 是否为有效表
     if type(skill_names) ~= "table" then
-        skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [None]",
+        logger.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [None]",
             tostring(self.owner and self.owner.id or "Unknown")))
         return
     end
 
     -- 打印技能列表
     local skill_names_str = table.concat(skill_names, ", ")
-    skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
-        tostring(self.owner and self.owner.id or "Unknown"), skill_names_str))
+    logger.info(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
+        tostring(self.owner and self.owner.id or "Unknown"), skill_names_str), "", {
+        id = self.owner.id,
+        skill_names = skill_names_str
+    })
 
     -- 加载技能
     for _, sn in ipairs(skill_names) do
@@ -51,9 +56,13 @@ function SkillSystem:loadSkills(skill_names)
                 definition = def,
                 casting = nil
             }
-            skynet.error(string.format("[SkillSystem:loadSkills] Loaded Skill: %s", sn))
+            logger.info(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
+                tostring(self.owner and self.owner.id or "Unknown"), sn), "", {
+                id = self.owner.id,
+                skill_name = sn
+            })
         else
-            skynet.error(string.format("[SkillSystem:loadSkills] Skill definition not found for: %s", sn))
+            logger.error(string.format("[SkillSystem:loadSkills] Skill definition not found for: %s", sn))
         end
     end
 end
@@ -67,7 +76,7 @@ end
 
 -- 事件回调
 function SkillSystem:onEvent(eventType, eventData)
-    skynet.error("[SkillSystem] onEvent =>", eventType)
+    logger.debug("[SkillSystem] onEvent =>", "", { eventType = eventType })
     if eventType == EventDef.EVENT_BATTLE_TICK then
         self:onTick(eventData.battle)
     end
@@ -87,11 +96,17 @@ function SkillSystem:onTick(battle)
         castData.timer = castData.timer - dt
         -- 如果被眩晕/沉默/中断 => break
         if self:is_interrupted(castData.caster) then
-            skynet.error("[SkillSystem] cast interrupted =>", castData.skill_name)
+            logger.info("[SkillSystem] cast interrupted =>", {
+                caster = castData.caster.id,
+                skill_name = castData.skill_name
+            })
             self.casting = nil
         else
             if castData.timer <= 0 then
-                skynet.error("[SkillSystem] cast done =>", castData.skill_name)
+                logger.info("[SkillSystem] cast done, do_apply_skill =>", "", {
+                    caster = castData.caster.id,
+                    skill_name = castData.skill_name
+                })
                 -- 施法完成, 真正执行Buff挂载
                 self:do_apply_skill(castData.skill_name, castData.caster, castData.battlefield)
                 self.casting = nil
@@ -121,7 +136,7 @@ function SkillSystem:cast(skill_name, caster)
     if sdata.cd_left > 0 then return false, "CDing" end
     local def = sdata.definition
     if caster.attr:get("MP") < (def.mana_cost or 0) then
-        logger.info("[SkillSystem] release_skill fail: NoMP", "battle", {
+        logger.debug("[SkillSystem] release_skill fail: NoMP", "battle", {
             caster_id = caster.id, skill_name = skill_name
         })
         return false, "NoMP"
