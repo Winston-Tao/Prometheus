@@ -93,7 +93,7 @@ end
 
 -- 手动施法
 function Battle:release_skill(caster_id, skill_name, target_id)
-    logger.info("[Battle] try to release_skill", "battle", {
+    logger.debug("[Battle] try to release_skill", "battle", {
         caster_id = caster_id, skill_name = skill_name
     })
     local caster, target

@@ -173,8 +173,8 @@ function CMD.release_skill(mgr, battle_id, caster_id, skill_name, target_id)
 end
 
 -- 热更接口
-function CMD.hotfix(modules)
-    hotlogger.error(string.format("[SubscriberService] Received hotfix for modules: %s", table.concat(modules, ", ")))
+function CMD.hotfix(mgr, modules)
+    hotlogger.info(string.format("[SubscriberService] Received hotfix for modules: %s", table.concat(modules, ", ")))
     for _, module_name in ipairs(modules) do
         package.loaded[module_name] = nil
         local ok, mod = pcall(require, module_name)
@@ -184,6 +184,7 @@ function CMD.hotfix(modules)
             hotlogger.error(string.format("[SubscriberService] Failed to reload module: %s, error: %s", module_name, mod))
         end
     end
+    skynet.ret()
 end
 
 -- 订阅热更服务

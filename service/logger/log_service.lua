@@ -10,21 +10,24 @@ FileHandler   = require "file_handler"
 ModuleFilter  = require "log_filter"
 
 function CMD.init()
-    logger              = Logger:new()
+    logger                   = Logger:new()
 
-    local baseFormatter = BaseFormatter:new()
+    local baseFormatter      = BaseFormatter:new()
 
     -- 1) battleHandler => battle.log
-    local battleHandler = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/battle.log")
+    local battleDebugHandler = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/battle_")
+    local battleInfoHandler  = FileHandler:new(baseFormatter, LogLevel.INFO, "logs/battle_")
 
     -- 只过滤 "battle" 模块 => ModuleFilter
-    local battleFilter  = ModuleFilter:new { ["battle"] = true }
-    battleHandler:addFilter(battleFilter)
+    local battleFilter       = ModuleFilter:new { ["battle"] = true }
+    battleDebugHandler:addFilter(battleFilter)
+    battleInfoHandler:addFilter(battleFilter)
 
-    logger:addHandler(battleHandler)
+    logger:addHandler(battleDebugHandler)
+    logger:addHandler(battleInfoHandler)
 
     -- 2) hotUpdateHandler => ai.log
-    local hotUpdateHandler       = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/hotUpdate.log")
+    local hotUpdateHandler       = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/hotUpdate")
     local hotUpdateHandlerFilter = ModuleFilter:new { ["hotUpdate"] = true }
     hotUpdateHandler:addFilter(hotUpdateHandlerFilter)
     logger:addHandler(hotUpdateHandler)
