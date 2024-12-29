@@ -1,36 +1,31 @@
 -- battle_data.lua
+local EffectDef   = require "effect_def"
+local TriggerDef  = require "trigger_def"
+local DamageDef   = require "damage_def"
+
 local battle_data = {}
 
----------------------------
--- 1. Effect Definitions -- 路由策略
----------------------------
-battle_data.effect_definitions = {
-    hurt = {},             -- 独立文件：effects/hurt.lua
-    apply_buff = {},       -- 独立文件：effects/apply_buff.lua
-    modify_attribute = {}, -- 独立文件：effects/modify_attribute.lua
-    -- 也可继续扩展: heal.lua, knockback.lua, ...
-}
 
 ---------------------------
 -- 2. Buff Definitions
 ---------------------------
-battle_data.buff_definitions = {
+battle_data.buff_definitions     = {
     -- SlowDebuff: 对目标减速
     SlowDebuff = {
         duration = 3,
         overlap = "refresh",
         effects = {
             {
-                effect_type = "modify_attribute",
-                trigger = "onApply", -- Buff挂载时立刻执行
-                attr = "MoveSpeed",
-                value = -100
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                attr        = "MoveSpeed",
+                value       = -100
             },
             {
-                effect_type = "modify_attribute",
-                trigger = "onApply",
-                attr = "AttackSpeed",
-                value = -0.3
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                attr        = "AttackSpeed",
+                value       = -0.3
             }
         }
     },
@@ -40,10 +35,10 @@ battle_data.buff_definitions = {
         overlap = "stack", -- 可以堆叠
         effects = {
             {
-                effect_type = "hurt",
-                trigger = "onTick", -- 每秒Tick一次
+                effect_type = EffectDef.types.HURT,
+                trigger = TriggerDef.TRIGGERS.ON_TICK,
                 tick_interval = 1,
-                damage_type = "magical",
+                damage_type = DamageDef.DAMAGES.MAGICAL,
                 base_damage = 20
             }
         }
@@ -54,7 +49,7 @@ battle_data.buff_definitions = {
         overlap = "refresh",
         effects = {
             {
-                effect_type = "modify_attribute",
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
                 trigger = "onTick",
                 tick_interval = 1,
                 attr = "HP",
@@ -115,10 +110,10 @@ battle_data.buff_definitions = {
         overlap = "discard",
         effects = {
             {
-                effect_type = "modify_attribute",
-                trigger = "onApply",
-                attr = "MoveSpeed",
-                value = -50
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                attr        = "MoveSpeed",
+                value       = -50
             },
         }
     },
@@ -131,7 +126,7 @@ battle_data.buff_definitions = {
         duration = 9999,
         effects = {
             {
-                effect_type = "modify_attribute",
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
                 trigger = "onSpellDamageDealt",
                 attr = "SkillLifeSteal", -- 伪属性
                 -- 具体由 damage_calc 里判断单位类型(英雄/小兵)
@@ -145,9 +140,9 @@ battle_data.buff_definitions = {
         duration = 9999,
         effects = {
             {
-                effect_type = "summon_creature",
-                trigger = "onApply",
-                creature_name = "ThornMonster",
+                effect_type     = "summon_creature",
+                trigger         = TriggerDef.TRIGGERS.ON_APPLY,
+                creature_name   = "ThornMonster",
                 inherit_percent = 100
             },
             {
@@ -156,10 +151,10 @@ battle_data.buff_definitions = {
                 base_damage = 50
             },
             {
-                effect_type = "modify_attribute",
-                trigger = "onApply",
-                attr = "MaxHP",
-                value = 45, -- +45% ...
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                attr        = "MaxHP",
+                value       = 45, -- +45% ...
             },
             {
                 effect_type = "hpDrainPerSec", -- ...
@@ -175,15 +170,15 @@ battle_data.buff_definitions = {
         duration = 2,
         effects = {
             {
-                effect_type = "modify_attribute",
-                trigger = "onApply",
-                attr = "CanMove",
-                value = -1
+                effect_type = EffectDef.types.MODIFY_ATTRIBUTE,
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                attr        = "CanMove",
+                value       = -1
             },
             {
                 effect_type = "hurt",
                 trigger = "onTick",
-                damage_type = "physical",
+                damage_type = DamageDef.DAMAGES.PHYSICAL,
                 base_damage_factor = 1.4
             }
         }
@@ -204,7 +199,7 @@ battle_data.buff_definitions = {
 ---------------------------
 -- 3. Skill Definitions
 ---------------------------
-battle_data.skill_definitions = {
+battle_data.skill_definitions    = {
     -- 普通物理攻击
     PhysicalAttack = {
         cooldown = 1,
@@ -357,14 +352,14 @@ battle_data.strategy_definitions = {
 -- InstantBuff =
 --   并不真正存在buff持续时间，而是“挂载后立刻移除”，只执行其effects
 --   方便表达一次性伤害、一次性治疗
-battle_data.instant_buffs = {
+battle_data.instant_buffs        = {
     HurtPhysical50 = {
         duration = 0.01,
         effects = {
             {
                 effect_type = "hurt",
-                trigger = "onApply",
-                damage_type = "physical",
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                damage_type = DamageDef.DAMAGES.PHYSICAL,
                 base_damage = 50
             }
         }
@@ -374,14 +369,14 @@ battle_data.instant_buffs = {
         effects = {
             {
                 effect_type = "hurt",
-                trigger = "onApply",
-                damage_type = "magical",
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                damage_type = DamageDef.DAMAGES.MAGICAL,
                 base_damage = 100
             },
             {
                 effect_type = "apply_buff",
-                trigger = "onApply",
-                buff_name = "SlowDebuff"
+                trigger     = TriggerDef.TRIGGERS.ON_APPLY,
+                buff_name   = "SlowDebuff"
             }
         }
     }
