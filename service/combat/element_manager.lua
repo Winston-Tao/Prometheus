@@ -4,7 +4,6 @@ local battle_data = require "battle_data"
 
 local ElementManager = {}
 ElementManager.__index = ElementManager
-
 function ElementManager:new()
     local obj          = setmetatable({}, self)
 

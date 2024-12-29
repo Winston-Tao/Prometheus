@@ -56,7 +56,7 @@ function blade_mail.execute(effConfig, caster, target, buffDef, originDamage)
         battle = target.battle,
         source = target,
         target = caster,
-        -- todo 可以细分反伤事件
+        -- todo 可以细分为反伤事件
         type = EventDef.EVENT_ACCEPT_DAMAGE,
         dmgInfo = {
             source_id          = target.id,
