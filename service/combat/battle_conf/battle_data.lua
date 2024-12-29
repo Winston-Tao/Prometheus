@@ -187,10 +187,10 @@ battle_data.buff_definitions     = {
         duration = 6,
         effects = {
             {
-                effect_type = "lightningStrike",
+                effect_type = "hurt",
                 trigger = "onTick",
-                tick_interval = 1,
-                damage_percent = 0.5
+                damage_type = DamageDef.DAMAGES.PHYSICAL,
+                base_damage_factor = 1.4
             }
         }
     }

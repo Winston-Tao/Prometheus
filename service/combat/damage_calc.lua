@@ -1,5 +1,6 @@
 -- damage_calc.lua
 -- 集中处理 伤害类型、标记、反射限制 等
+local logger      = require "battle_logger"
 local damage_calc = {}
 
 -- 核心函数:
@@ -15,7 +16,7 @@ function damage_calc:applyDamage(dmg)
     end
 
     -- 2) 计算具体减伤, block,闪避...
-    local real = dmg.amount
+    local real = (dmg.base_damage_factor or 1) * (dmg.source.attr:get("NT") or 100)
     if dmg.damage_type == "physical" then
         -- armor
         local armor = dmg.target.attr:get("Armor") or 0
@@ -46,6 +47,13 @@ function damage_calc:applyDamage(dmg)
 
     -- 5) 伤害反射标记 is_reflect: 不再二次反射
     -- ...
+
+    logger.info("[damage_calc] applyDamage finish!", "", {
+        source_id = dmg.source.id,
+        target_id = dmg.target.id,
+        realDamage = real,
+        target_attr = dmg.target.attr.current
+    })
     return real
 end
 

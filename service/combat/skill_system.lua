@@ -67,18 +67,28 @@ function SkillSystem:loadSkills(skill_names)
     end
 end
 
--- 订阅事件
-function SkillSystem:onRegisterToBattle(battle)
-    -- 订阅 BATTLE_TICK
-    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
-    -- 如果想监听 SKILL_CAST等也可以
-end
+---- 订阅事件
+--function SkillSystem:onRegisterToBattle(battle)
+--    -- 订阅 BATTLE_TICK
+--    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+--    -- 如果想监听 SKILL_CAST等也可以
+--end
 
--- 事件回调
+-- 事件回调：收到 "event_interrupt_skill"
 function SkillSystem:onEvent(eventType, eventData)
     logger.debug("[SkillSystem] onEvent =>", "", { eventType = eventType })
     if eventType == EventDef.EVENT_BATTLE_TICK then
         self:onTick(eventData.battle)
+    elseif eventType == EventDef.EVENT_INTERRUPT_SKILL then
+        -- 如果当前在施法 -- 后续还可以从事件中传递更多参数 比如被谁打断等。。
+        if self.casting and self.casting.caster == eventData.target then
+            logger.info("[SkillSystem] cast interrupted =>", {
+                caster = self.casting.caster.id,
+                skill_name = self.casting.skill_name,
+                reason = eventData.reason or "unknown"
+            })
+            self.casting = nil
+        end
     end
 end
 
@@ -90,39 +100,29 @@ function SkillSystem:onTick(battle)
             s.cd_left = math.max(0, s.cd_left - dt)
         end
     end
-    -- 处理中断 or 前摇进度
+    -- 施法完成判断
     if self.casting then
         local castData = self.casting
         castData.timer = castData.timer - dt
-        -- 如果被眩晕/沉默/中断 => break
-        if self:is_interrupted(castData.caster) then
-            logger.info("[SkillSystem] cast interrupted =>", {
+        if castData.timer <= 0 then
+            logger.info("[SkillSystem] cast done => do_apply_skill", {
                 caster = castData.caster.id,
                 skill_name = castData.skill_name
             })
+            self:do_apply_skill(castData.skill_name, castData.caster, castData.battlefield)
             self.casting = nil
-        else
-            if castData.timer <= 0 then
-                logger.info("[SkillSystem] cast done, do_apply_skill =>", "", {
-                    caster = castData.caster.id,
-                    skill_name = castData.skill_name
-                })
-                -- 施法完成, 真正执行Buff挂载
-                self:do_apply_skill(castData.skill_name, castData.caster, castData.battlefield)
-                self.casting = nil
-            end
         end
     end
 end
 
--- 判断中断
-function SkillSystem:is_interrupted(caster)
-    local canCast = caster.attr:get("CanCastSkill")
-    if canCast and canCast < 0 then
-        return true
-    end
-    -- 也可判断 stun/silence
-    return false
+-- 以往 self:is_interrupted(...) 改为事件通知
+function SkillSystem:castInterrupt(caster, reason)
+    local eventData = {
+        target = caster,
+        reason = reason,
+    }
+    local dispatcher = caster.battle.eventDispatcher
+    dispatcher:publish(EventDef.EVENT_INTERRUPT_SKILL, eventData)
 end
 
 function SkillSystem:cast(skill_name, caster)

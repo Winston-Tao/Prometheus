@@ -136,7 +136,7 @@ function Battle:applyDamage(source, target, dmgInfo)
         dmgInfo = dmgInfo
     }
     -- 发布 DAMAGE事件
-    self.eventDispatcher:publish(EventDef.EVENT_DAMAGE, eventData)
+    self.eventDispatcher:publish(EventDef.EVENT_ACCEPT_DAMAGE, eventData)
 end
 
 return Battle

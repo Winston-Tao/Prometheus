@@ -125,7 +125,6 @@ end
 
 -- 手动施法
 function CombatManager:release_skill(battle_id, caster_id, skill_name, target_id)
-    skynet.error("[DEBUG] bid222:", battle_id, caster_id, skill_name, target_id)
     local battle = self:getBattle(battle_id);
     battle:release_skill(caster_id, skill_name, target_id)
 end
@@ -167,7 +166,6 @@ function CMD.destroy_battle(mgr, bid)
 end
 
 function CMD.release_skill(mgr, battle_id, caster_id, skill_name, target_id)
-    skynet.error("[DEBUG] bid111:", battle_id, caster_id, skill_name, target_id)
     mgr:release_skill(battle_id, caster_id, skill_name, target_id)
     skynet.retpack("ok")
 end
