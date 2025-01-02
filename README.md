@@ -19,14 +19,15 @@
 ### 2.1 系统架构图
 ```mermaid
 graph TD
-    A[Entity] -->|进入战斗| B[Combat Manager]
-    B --> C[Combatant]
-    C --> D[Attribute System]
-    C --> E[Skill System]
-    C --> F[Buff System]
-    F --> G[Effect System]
-    B --> H[Combat Logger]
-    B --> I[Communication Module]
+
+    A[Entity] -->|进入战斗| B[server_router]
+    B --> C[BattleManager]
+    C --> Y[Battle]
+    Y --> D[Combatant]
+    D --> E[Attribute System]
+    D --> F[Skill System]
+    D --> G[Buff System]
+    Y --> H[Battle Logger]
 ```
 
 
@@ -185,7 +186,7 @@ Buff持续管理：Buff持续时间或通过技能冷却间隔自动刷新。
 1. 战斗前属性收集：
 
    * 从Entity数据中提取所有与战斗相关的属性。
-   * 通过 combataAttrCollect 收集并汇总这些属性，为Combatant创建做准备。
+   * 通过 combatAttrCollect 收集并汇总这些属性，为Combatant创建做准备。
 
 2. Combatant创建：
    * 战斗开始时，根据收集到的属性创建Combatant对象。
@@ -272,7 +273,7 @@ Dota 2 示例： 技能示例：英雄“Lina”的“Dragon Slave”
 #### 7. 框架性能
 ##### 7.1 通用服务器管理与调度机制
 设计思路：集中管理所有 battle_manager 服务实例，并为每个服务分配一定的战场负载 (battle)，从而在多个 CPU 核心上“横向扩展”处理。
-1. 集中管理：创建一个“battle_manager”服务，用于记录所有 combat_manager 服务实例，并管理其当前负载（已创建的战场数量）。
+1. 集中管理：创建一个“server_router”服务，用于记录所有 battle_manager 服务实例，并管理其当前负载（已创建的战场数量）。
 2. 负载均衡：当有新的战场需求时，先查询所有可用的 battle_manager 实例，看谁的战场数量更少或者尚未达上限，分配给它以保持负载平衡。
 3. 扩缩容：如果现有的 battle_manager 实例都接近饱和，可以动态创建新的 battle_manager 实例（或在服务器启动时固定数量），从而“横向扩展”战斗处理能力。
 
