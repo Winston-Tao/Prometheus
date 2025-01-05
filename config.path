@@ -1,6 +1,6 @@
 root = "./"
-luaservice = root.."service/?.lua;"..root.."test/?.lua;"..root.."slg_server/service/?.lua;"..root.."test/?/init.lua;"..root.."slg_server/service/combat/?.lua;"..root.."slg_server/service/base/?.lua;"
+luaservice = root.."service/?.lua;"..root.."test/?.lua;"..root.."slg_server/service/?.lua;"..root.."test/?/init.lua;"..root.."slg_server/service/combat/?.lua;"..root.."slg_server/service/base/?.lua;"  .. root.."slg_server/service/logger/?.lua;"
 lualoader = root .. "lualib/loader.lua"
-lua_path = root.."lualib/?.lua;"..root.."lualib/?/init.lua;" .. luaservice .. root.."slg_server/service/combat/battle_conf/?.lua;"  .. root.."slg_server/service/combat/effects/?.lua;"  .. root.."slg_server/service/combat/strategies/?.lua;"
+lua_path = root.."lualib/?.lua;"..root.."lualib/?/init.lua;" .. luaservice .. root.."slg_server/service/combat/battle_conf/?.lua;"  .. root.."slg_server/service/combat/effects/?.lua;"  .. root.."slg_server/service/combat/strategies/?.lua;"   .. root.."slg_server/service/logger/?.lua;"
 lua_cpath = root .. "luaclib/?.so"
 snax = root.."test/?.lua"

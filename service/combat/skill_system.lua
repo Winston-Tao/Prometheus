@@ -1,10 +1,11 @@
 -- skill_system.lua
-local skynet = require "skynet"
+local skynet        = require "skynet"
 
 local EventConsumer = require "event.event_consumer"
-local EventDef = require "event.event_def"
+local EventDef      = require "event.event_def"
+local logger        = require "battle_logger"
 
-local SkillSystem = {}
+local SkillSystem   = {}
 SkillSystem.__index = SkillSystem
 
 function SkillSystem:new(combatant, elemMgr)
@@ -21,24 +22,29 @@ function SkillSystem:new(combatant, elemMgr)
     if combatant and type(combatant.skills) == "table" then
         obj:loadSkills(combatant.skills)
     else
-        skynet.error("[SkillSystem:new] Invalid or missing combatant.skills =》", type(combatant.skills))
+        logger.error("[SkillSystem:new] Invalid or missing combatant.skills =》", type(combatant.skills))
     end
-
+    logger.info("[SkillSystem:new] combatant SkillSystem init", "battle", {
+        id = combatant.id
+    })
     return obj
 end
 
 function SkillSystem:loadSkills(skill_names)
     -- 检查 skill_names 是否为有效表
     if type(skill_names) ~= "table" then
-        skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [None]",
+        logger.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [None]",
             tostring(self.owner and self.owner.id or "Unknown")))
         return
     end
 
     -- 打印技能列表
     local skill_names_str = table.concat(skill_names, ", ")
-    skynet.error(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
-        tostring(self.owner and self.owner.id or "Unknown"), skill_names_str))
+    logger.info(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
+        tostring(self.owner and self.owner.id or "Unknown"), skill_names_str), "", {
+        id = self.owner.id,
+        skill_names = skill_names_str
+    })
 
     -- 加载技能
     for _, sn in ipairs(skill_names) do
@@ -50,25 +56,39 @@ function SkillSystem:loadSkills(skill_names)
                 definition = def,
                 casting = nil
             }
-            skynet.error(string.format("[SkillSystem:loadSkills] Loaded Skill: %s", sn))
+            logger.info(string.format("[SkillSystem:loadSkills] Owner ID: %s, Skills: [%s]",
+                tostring(self.owner and self.owner.id or "Unknown"), sn), "", {
+                id = self.owner.id,
+                skill_name = sn
+            })
         else
-            skynet.error(string.format("[SkillSystem:loadSkills] Skill definition not found for: %s", sn))
+            logger.error(string.format("[SkillSystem:loadSkills] Skill definition not found for: %s", sn))
         end
     end
 end
 
--- 订阅事件
-function SkillSystem:onRegisterToBattle(battle)
-    -- 订阅 BATTLE_TICK
-    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
-    -- 如果想监听 SKILL_CAST等也可以
-end
+---- 订阅事件
+--function SkillSystem:onRegisterToBattle(battle)
+--    -- 订阅 BATTLE_TICK
+--    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+--    -- 如果想监听 SKILL_CAST等也可以
+--end
 
--- 事件回调
+-- 事件回调：收到 "event_interrupt_skill"
 function SkillSystem:onEvent(eventType, eventData)
-    skynet.error("[SkillSystem] onEvent =>", eventType)
+    logger.debug("[SkillSystem] onEvent =>", "", { eventType = eventType })
     if eventType == EventDef.EVENT_BATTLE_TICK then
         self:onTick(eventData.battle)
+    elseif eventType == EventDef.EVENT_INTERRUPT_SKILL then
+        -- 如果当前在施法 -- 后续还可以从事件中传递更多参数 比如被谁打断等。。
+        if self.casting and self.casting.caster == eventData.target then
+            logger.info("[SkillSystem] cast interrupted =>", {
+                caster = self.casting.caster.id,
+                skill_name = self.casting.skill_name,
+                reason = eventData.reason or "unknown"
+            })
+            self.casting = nil
+        end
     end
 end
 
@@ -80,48 +100,52 @@ function SkillSystem:onTick(battle)
             s.cd_left = math.max(0, s.cd_left - dt)
         end
     end
-    -- 处理中断 or 前摇进度
+    -- 施法完成判断
     if self.casting then
         local castData = self.casting
         castData.timer = castData.timer - dt
-        -- 如果被眩晕/沉默/中断 => break
-        if self:is_interrupted(castData.caster) then
-            skynet.error("[SkillSystem] cast interrupted =>", castData.skill_name)
+        if castData.timer <= 0 then
+            logger.info("[SkillSystem] cast done => do_apply_skill", {
+                caster = castData.caster.id,
+                skill_name = castData.skill_name
+            })
+            self:do_apply_skill(castData.skill_name, castData.caster, castData.battlefield)
             self.casting = nil
-        else
-            if castData.timer <= 0 then
-                skynet.error("[SkillSystem] cast done =>", castData.skill_name)
-                -- 施法完成, 真正执行Buff挂载
-                self:do_apply_skill(castData.skill_name, castData.caster, castData.battlefield)
-                self.casting = nil
-            end
         end
     end
 end
 
--- 判断中断
-function SkillSystem:is_interrupted(caster)
-    local canCast = caster.attr:get("CanCastSkill")
-    if canCast and canCast < 0 then
-        return true
-    end
-    -- 也可判断 stun/silence
-    return false
+-- 以往 self:is_interrupted(...) 改为事件通知
+function SkillSystem:castInterrupt(caster, reason)
+    local eventData = {
+        target = caster,
+        reason = reason,
+    }
+    local dispatcher = caster.battle.eventDispatcher
+    dispatcher:publish(EventDef.EVENT_INTERRUPT_SKILL, eventData)
 end
 
 function SkillSystem:cast(skill_name, caster)
     local sdata = self.skills[skill_name]
-    if not sdata then return false, "No skill" end
+    if not sdata then
+        logger.error("[SkillSystem] release_skill fail: No skill", "battle", {
+            caster_id = caster.id, skill_name = skill_name
+        })
+        return false, "No skill"
+    end
     if sdata.cd_left > 0 then return false, "CDing" end
     local def = sdata.definition
     if caster.attr:get("MP") < (def.mana_cost or 0) then
+        logger.debug("[SkillSystem] release_skill fail: NoMP", "battle", {
+            caster_id = caster.id, skill_name = skill_name
+        })
         return false, "NoMP"
     end
 
     -- 前摇 cast_time
     local ct = def.cast_time or 0
     local break_on_stun = (def.break_on_stun ~= false) -- 默认被stun打断
-    skynet.error(string.format("[SkillSystem] start cast skill=%s ct=%.2f", skill_name, ct))
+
     -- 施法过程
     self.casting = {
         skill_name = skill_name,

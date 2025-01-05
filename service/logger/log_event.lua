@@ -5,13 +5,16 @@ local skynet = require "skynet"
 local LogEvent = {}
 LogEvent.__index = LogEvent
 
-function LogEvent:new(level, message, tags, data)
+function LogEvent:new(level, message, file, line, func, tags, data, timestamp)
     local obj     = setmetatable({}, self)
-    obj.level     = level         -- (LogLevel.*)
-    obj.message   = message       -- string
-    obj.tags      = tags or {}    -- { "battle", "buff", "damage" ...}
-    obj.data      = data or {}    -- table for extra fields
-    obj.timestamp = skynet.time() -- or os.time()
+    obj.level     = level
+    obj.message   = message
+    obj.file      = file or "?"
+    obj.line      = line or "?"
+    obj.func      = func or "?"
+    obj.tags      = tags or {}
+    obj.data      = data or {}
+    obj.timestamp = timestamp or skynet.time()
     return obj
 end
 

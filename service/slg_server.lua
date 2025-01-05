@@ -2,7 +2,6 @@
 local skynet = require "skynet"
 require "skynet.manager" -- import skynet.register
 local service_manager = require "service_manager"
-local logger = require "battle_logger"
 
 skynet.error("package.path=", package.path)
 skynet.error("package.cpath=", package.cpath)
@@ -12,6 +11,13 @@ local SceneFactory = require "scene_factory"
 
 skynet.start(function()
     skynet.error("Server start")
+
+    skynet.newservice("debug_console", 8000)
+
+    skynet.uniqueservice("log_service")
+
+    -- 启动lua热更新服务
+    skynet.uniqueservice("hotfix_service")
 
     local scene_config = {
         scenes = {
@@ -103,11 +109,8 @@ skynet.start(function()
         skynet.error("[INFO] Service 'server_router' started successfully with handle:", router)
     end
 
-    -- 启动战斗日志服务
-    logger.init() -- 初始化日志系统
-
-    -- 启动多个 combat_manager
-    for i = 1, 2 do
+    -- 启动多个 combat_manager -- 先值启动一个测试
+    for i = 1, 1 do
         local combat_manager
         ok, err = pcall(function()
             combat_manager = skynet.newservice("combat_manager")

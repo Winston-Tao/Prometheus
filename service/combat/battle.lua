@@ -1,24 +1,43 @@
+--------------------------------------------------------------------------------
 -- battle.lua
+-- 不再 fork while；改用 :setupSchedule() + :doFrame() => 由上层调度器调度
+--------------------------------------------------------------------------------
 local skynet          = require "skynet"
 local EventDispatcher = require "event.event_dispatcher"
 local EventDef        = require "event.event_def"
 local Combatant       = require "combat.combatant"
 local ElementManager  = require "element_manager"
+local battle_params   = require "battle_params"
 local logger          = require "battle_logger"
 
-local Battle          = {}
-Battle.__index        = Battle
+local function formatTimestamp(ts)
+    local sec     = math.floor(ts)
+    local msec    = math.floor((ts - sec) * 1000)
+    local dateStr = os.date("%Y-%m-%d %H:%M:%S", sec)
+    return string.format("%s.%03d", dateStr, msec)
+end
 
-function Battle:new(battle_id, mapSize)
+local Battle   = {}
+Battle.__index = Battle
+
+function Battle:new(bid, mapSize)
     local obj = setmetatable({}, self)
-    obj.id = battle_id
-    obj.mapSize = mapSize or 10 -- NxN
+    obj.id = bid
+    obj.mapSize = mapSize or 10
     obj.combatants = {}
     obj.is_active = false
 
+    -- 事件
     obj.eventDispatcher = EventDispatcher:new("sync")
-    obj.tickInterval = 1 -- 1秒
-    logger.debug("Battle", "create", obj)
+
+    -- 用于技能cd
+    obj.tickInterval = 1
+
+    -- 帧时序
+    obj.beginms = math.floor(skynet.time() * 1000) -- 可以再加startDelay
+    obj.count = 0
+    obj.frame_duration = battle_params.FRAME_DURATION
+    logger.info("Battle:new", "battle", { id = obj.id, time = formatTimestamp(skynet.time()) })
     return obj
 end
 
@@ -27,49 +46,10 @@ function Battle:subscribeEvent(eventType, consumer)
     self.eventDispatcher:subscribe(eventType, consumer)
 end
 
--- 启动战场(使用事件驱动)
-function Battle:start()
-    self.is_active = true
-    skynet.fork(function()
-        while self.is_active do
-            skynet.sleep(self.tickInterval * 100)
-            -- 发布 BATTLE_TICK 事件
-            skynet.error("[battle] publish EventDef.EVENT_BATTLE_TICK.")
-            self.eventDispatcher:publish(EventDef.EVENT_BATTLE_TICK, { battle = self })
-            self:checkEnd()
-        end
-    end)
-end
-
-function Battle:checkEnd()
-    local heroAlive, enemyAlive = false, false
-    local hpInfo = {} -- 用于存储战斗者的 HP 信息
-
-    for _, c in ipairs(self.combatants) do
-        local hp = c.attr:get("HP")
-        hpInfo[c.id] = { type = c.type, hp = hp } -- 假设 c 有一个唯一的 id 属性
-
-        if hp > 0 then
-            if c.type == "Hero" then
-                heroAlive = true
-            elseif c.type == "Enemy" then
-                enemyAlive = true
-            end
-        end
-    end
-
-    -- 打印 HP 信息
-    for id, info in pairs(hpInfo) do
-        skynet.error(string.format("[Battle] Combatant ID: %s, Type: %s, HP: %d", id, info.type, info.hp))
-    end
-
-    -- 检查战斗是否结束
-    if (not heroAlive) or (not enemyAlive) then
-        self.is_active = false
-        skynet.error(string.format("[Battle] end => %s", self.id))
-    else
-        skynet.error("[Battle] checkEnd false")
-    end
+-- 让Battle知道如何把"下一帧任务"注册到调度器，以及如何汇报deltaT信息
+function Battle:setupSchedule(pushTaskFunc, frameDoneFunc)
+    self.pushTaskFunc  = pushTaskFunc
+    self.frameDoneFunc = frameDoneFunc
 end
 
 function Battle:addCombatant(combatant)
@@ -81,12 +61,80 @@ function Battle:addCombatant(combatant)
 
     -- 调用 `onRegisterToBattle`
     realCom:onRegisterToBattle(self)
-
+    logger.debug("[Battle] addCombatant", "battle", {
+        id = realCom.id,
+        type = realCom.type,
+        attributes = realCom.ttributes,
+        skills = realCom.skills,
+    })
     return realCom
 end
 
--- 手动施法
+function Battle:getNextFrameTime()
+    return self.beginms + self.count * self.frame_duration
+end
+
+function Battle:doFrame()
+    logger.info("[Battle:doFrame] begin", "battle", {
+        battle_id = self.id,
+        frame = self.count
+    })
+    if not self.is_active then return end
+
+    local now = math.floor(skynet.time() * 1000)
+    local logic_time = self.beginms + self.count * self.frame_duration
+    local deltaT = now - logic_time
+
+    local st = now
+    self.count = self.count + 1
+    -- 发布事件 => AI / Buff / ...
+    self.eventDispatcher:publish(EventDef.EVENT_BATTLE_TICK, { battle = self })
+
+    self:checkEnd()
+
+    local calcTime = math.floor(skynet.time() * 1000) - st
+    -- 回调给manager, 做统计
+    if self.frameDoneFunc then
+        self.frameDoneFunc(self.id, deltaT, calcTime)
+    end
+
+    -- 若尚未结束 => 推送下一帧任务
+    if self.is_active then
+        local nextFrameTime = self:getNextFrameTime()
+        -- 追帧: 如果 deltaT> battle_params.CHASE_THRESHOLD => nextFrameTime= now
+        if deltaT > battle_params.CHASE_THRESHOLD then
+            nextFrameTime = now
+        end
+        self.pushTaskFunc(nextFrameTime, function()
+            self:doFrame()
+        end)
+    end
+end
+
+function Battle:checkEnd()
+    local heroAlive, enemyAlive = false, false
+    for _, c in ipairs(self.combatants) do
+        local hp = c.attr:get("HP")
+        if hp > 0 then
+            if c.type == "Hero" then
+                heroAlive = true
+            elseif c.type == "Enemy" then
+                enemyAlive = true
+            end
+        end
+    end
+    if (not heroAlive) or (not enemyAlive) or (self.count >= battle_params.MAX_FRAME_COUNT) then
+        self.is_active = false
+        logger.debug(string.format("[Battle %d] battle end => frame=%d", self.id, self.count), "battle", {
+            heroAlive = heroAlive,
+            enemyAlive = enemyAlive,
+            count = self.count
+        })
+    end
+end
+
 function Battle:release_skill(caster_id, skill_name, target_id)
+    logger.info("Battle:release_skill", "battle", { id = caster_id, skill_name = skill_name, target_id = target_id })
     local caster, target
     for _, c in ipairs(self.combatants) do
         if tostring(c.id) == tostring(caster_id) then
@@ -97,28 +145,10 @@ function Battle:release_skill(caster_id, skill_name, target_id)
         end
     end
     if not caster then
-        skynet.error("[CombatManager] no caster", caster_id)
+        logger.error(string.format("[Battle %d] release_skill no caster %s", self.id, caster_id), "battle")
         return
     end
-    local can, msg = caster:release_skill(skill_name)
-    if can then
-        skynet.error("[CombatManager] manual skill success:", skill_name, "by", caster_id)
-    else
-        skynet.error("[CombatManager] manual skill fail:", skill_name, msg)
-    end
-end
-
--- 对外伤害接口 => 发布伤害事件
-function Battle:applyDamage(source, target, dmgInfo)
-    -- dmgInfo = { amount, damage_type, origin_type, ... }
-    local eventData = {
-        battle = self,
-        source = source,
-        target = target,
-        dmgInfo = dmgInfo
-    }
-    -- 发布 DAMAGE事件
-    self.eventDispatcher:publish(EventDef.EVENT_DAMAGE, eventData)
+    caster:release_skill(skill_name, target)
 end
 
 return Battle

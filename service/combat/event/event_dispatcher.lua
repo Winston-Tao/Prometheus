@@ -31,4 +31,35 @@ function EventDispatcher:publish(eventType, eventData)
     end
 end
 
+function EventDispatcher:publishTo(consumers, eventData, syncOrAsync)
+    if not consumers or #consumers == 0 then
+        return
+    end
+    eventData.type = eventData.type or "custom_event"
+    if syncOrAsync == "sync" then
+        self:dispatchSync(consumers, eventData)
+    else
+        self:dispatchAsync(consumers, eventData)
+    end
+end
+
+-- 同步按优先级
+function EventDispatcher:dispatchSync(consumers, eventData)
+    table.sort(consumers, function(a, b)
+        return (a.priority or 50) > (b.priority or 50)
+    end)
+    for _, c in ipairs(consumers) do
+        c:onEvent(eventData.type, eventData)
+    end
+end
+
+-- 异步
+function EventDispatcher:dispatchAsync(consumers, eventData)
+    for _, c in ipairs(consumers) do
+        skynet.fork(function()
+            c:onEvent(eventData.type, eventData)
+        end)
+    end
+end
+
 return EventDispatcher

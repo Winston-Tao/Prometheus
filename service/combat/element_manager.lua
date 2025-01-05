@@ -4,7 +4,6 @@ local battle_data = require "battle_data"
 
 local ElementManager = {}
 ElementManager.__index = ElementManager
-
 function ElementManager:new()
     local obj          = setmetatable({}, self)
 
@@ -74,7 +73,7 @@ end
 ---------------------------
 -- runEffect
 ---------------------------
-function ElementManager:runEffect(effConfig, caster, target, skillOrBuff)
+function ElementManager:runEffect(effConfig, caster, target, skillOrBuff, originDamage)
     local etype = effConfig.effect_type
     if not etype then
         skynet.error("[ElementManager] Missing effect_type in config")
@@ -93,7 +92,7 @@ function ElementManager:runEffect(effConfig, caster, target, skillOrBuff)
     end
     local effect_mod = self.effect_cache[etype]
     if effect_mod and effect_mod.execute then
-        effect_mod.execute(effConfig, caster, target, skillOrBuff, self)
+        effect_mod.execute(effConfig, caster, target, skillOrBuff, originDamage, self)
     else
         skynet.error("[ElementManager] effect missing 'execute':", etype)
     end

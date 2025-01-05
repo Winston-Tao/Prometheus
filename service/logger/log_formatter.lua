@@ -25,6 +25,9 @@ local function serializeTable(val, indent, visited)
 
     table.insert(buffer, "{\n")
     for k, v in pairs(val) do
+        if k == "file" or k == "func" or k == "line" then
+            goto continue
+        end
         table.insert(buffer, indentStr .. "  " .. tostring(k) .. " = ")
         if type(v) == "table" then
             local sub = serializeTable(v, indent + 1, visited)
@@ -33,16 +36,31 @@ local function serializeTable(val, indent, visited)
             table.insert(buffer, tostring(v))
         end
         table.insert(buffer, ",\n")
+        ::continue::
     end
     table.insert(buffer, indentStr .. "}")
     return table.concat(buffer)
+end
+
+local function formatTimestamp(ts)
+    local sec     = math.floor(ts)
+    local msec    = math.floor((ts - sec) * 1000)
+    local dateStr = os.date("%Y-%m-%d %H:%M:%S", sec)
+    return string.format("%s.%03d", dateStr, msec)
 end
 
 -- 将 event (LogEvent) 转为字符串
 function LogFormatter:formatEvent(event)
     -- event 是一个表: { level, timestamp, message, tags, data }
     local buffer = {}
-    table.insert(buffer, "[LogEvent] level=" .. tostring(event.level))
+    local dateTimeStr = formatTimestamp(event.timestamp or 0)
+    table.insert(buffer, dateTimeStr)
+    if event.file or event.line or event.func then
+        local src = string.format("[%s:%s:%s]",
+            event.file or "?", event.line or "?", event.func or "?")
+        table.insert(buffer, ", location=" .. src)
+    end
+    table.insert(buffer, " [LogEvent] level=" .. tostring(event.level))
     table.insert(buffer, ", timestamp=" .. tostring(event.timestamp))
     table.insert(buffer, ", message=" .. tostring(event.message))
 

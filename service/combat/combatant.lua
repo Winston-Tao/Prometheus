@@ -1,11 +1,13 @@
 -- combatant.lua
-local skynet = require "skynet"
-local BuffSystem = require "buff_system"
-local SkillSystem = require "skill_system"
+local skynet          = require "skynet"
+local BuffSystem      = require "buff_system"
+local SkillSystem     = require "skill_system"
 local AttributeSystem = require "attribute_system"
+local EventDef        = require "event.event_def"
+logger                = require "battle_logger"
 
-local Combatant = {}
-Combatant.__index = Combatant
+local Combatant       = {}
+Combatant.__index     = Combatant
 
 function Combatant:new(entity_id, entity_data, elemMgr, battle)
     local obj = setmetatable({}, self)
@@ -34,15 +36,29 @@ function Combatant:new(entity_id, entity_data, elemMgr, battle)
 
 
     obj.onRegisterToBattle = function(self, battle)
-        if self.skillSys and type(self.skillSys.onRegisterToBattle) == "function" then
-            self.skillSys:onRegisterToBattle(battle)
-        end
-        if self.buffsys and type(self.buffsys.onRegisterToBattle) == "function" then
-            self.buffsys:onRegisterToBattle(battle)
-        end
+        battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+        --battle:subscribeEvent(EventDef.EVENT_ACCEPT_DAMAGE, self)
+        --battle:subscribeEvent(EventDef.EVENT_ATTACK, self)
+        --battle:subscribeEvent(EventDef.EVENT_INTERRUPT, self)
     end
 
     return obj
+end
+
+function Combatant:onEvent(eventType, eventData)
+    logger.debug("[Combatant] onEvent =>", "", { eventType = eventType })
+    if eventType == EventDef.EVENT_BATTLE_TICK then
+        self:onTick(eventData.battle)
+    end
+    if eventType ~= EventDef.EVENT_BATTLE_TICK then
+        logger.info("[Combatant] onEvent =>", "", { eventType = eventType })
+    end
+    -- 投递给子模块
+    self.skillSys:onEvent(eventType, eventData)
+    self.buffsys:onEvent(eventType, eventData)
+end
+
+function Combatant:onTick(dt, battlefield)
 end
 
 function Combatant:update(dt, battlefield)

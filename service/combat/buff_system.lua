@@ -1,12 +1,11 @@
 -- buff_system.lua
-local skynet = require "skynet"
+local skynet       = require "skynet"
 
-local EventConsumer = require "event.event_consumer"
-local EventDef = require "event.event_def"
-local ElementManager = require "element_manager"
-local damage_calc = require "damage_calc"
+local EventDef     = require "event.event_def"
+local damage_calc  = require "damage_calc"
+local logger       = require "battle_logger"
 
-local BuffSystem = {}
+local BuffSystem   = {}
 BuffSystem.__index = BuffSystem
 
 function BuffSystem:new(owner, elemMgr)
@@ -18,15 +17,13 @@ function BuffSystem:new(owner, elemMgr)
     return obj
 end
 
-function BuffSystem:onRegisterToBattle(battle)
-    -- 订阅事件: DAMAGE, BATTLE_TICK
-    battle:subscribeEvent(EventDef.EVENT_DAMAGE, self)
-    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
-end
+--function BuffSystem:onRegisterToBattle(battle)
+--    battle:subscribeEvent(EventDef.EVENT_BATTLE_TICK, self)
+--end
 
 function BuffSystem:onEvent(eventType, eventData)
-    if eventType == EventDef.EVENT_DAMAGE then
-        self:onDamageEvent(eventData)
+    if eventType == EventDef.EVENT_ACCEPT_DAMAGE then
+        self:onAcceptDamageEvent(eventData)
     elseif eventType == EventDef.EVENT_BATTLE_TICK then
         self:onTick(eventData)
     end
@@ -38,6 +35,8 @@ function BuffSystem:onTick(eventData)
         buffData.remaining = buffData.remaining - dt
         if buffData.remaining <= 0 then
             self:remove_buff(buff_id, "timeout")
+            logger.debug("[BuffSystem] remove_buff:", "", {
+                id = self.owner.id, apply_buff = buff_id })
         else
             -- 每秒/指定tick执行
             for _, eff in ipairs(buffData.definition.effects or {}) do
@@ -53,31 +52,37 @@ function BuffSystem:onTick(eventData)
     end
 end
 
-function BuffSystem:onDamageEvent(evt)
+function BuffSystem:onAcceptDamageEvent(evt)
+    logger.info("[BuffSystem] onAcceptDamageEvent:", "", {
+        accept_id = self.owner.id,
+        dmgInfo = evt.dmgInfo
+    })
     -- evt={ battle, source, target, dmgInfo }
-    if evt.target == self.owner then
-        -- self.owner受到伤害
-        local di = evt.dmgInfo
-        -- 先计算实际伤害
-        local real = damage_calc:applyDamage {
-            source = evt.source,
-            target = self.owner,
-            amount = di.amount,
-            damage_type = di.damage_type,
-            origin_type = di.origin_type,
-            is_reflect = di.is_reflect,
-            no_lifesteal = di.no_lifesteal,
-            no_spell_amp = di.no_spell_amp
-        }
-        di.dealt = real
-        -- 伤害完成后, Buff检查onDamageTaken
-        for _, buff in pairs(self.buffs) do
-            for _, eff in ipairs(buff.definition.effects or {}) do
-                if eff.trigger == "onDamageTaken" then
-                    buff.tempDamageInfo = di
-                    self.elemMgr:runEffect(eff, evt.source, self.owner, buff.definition)
-                    buff.tempDamageInfo = nil
-                end
+    -- self.owner受到伤害
+    local di = evt.dmgInfo
+    -- 先计算实际伤害
+    local originDamage = {
+        source = evt.source,
+        target = self.owner,
+        base_damage_factor = di.base_damage_factor,
+        damage_type = di.damage_type,
+        no_reflect = di.no_reflect,
+        no_lifesteal = di.no_lifesteal,
+        no_spell_amp = di.no_spell_amp,
+        reflectDmg = di.reflectDmg
+    }
+    local realDamage = damage_calc:applyDamage(originDamage)
+    originDamage.real = realDamage
+    di.dealt = realDamage
+    -- 伤害完成后, Buff检查onDamageTaken
+    -- todo 这里需要检查 no_reflect no_lifesteal no_spell_amp 比如不能再执行反弹的effect
+    for _, buff in pairs(self.buffs) do
+        for _, eff in ipairs(buff.definition.effects or {}) do
+            -- todo 传参后续再优化下 被事件触发的 effect 应该有更优雅的传参方式，默认effect就能取到触发事件更好，这里先写死了
+            if eff.trigger == "onDamageTaken" then
+                buff.tempDamageInfo = di
+                self.elemMgr:runEffect(eff, evt.source, self.owner, buff.definition, originDamage)
+                buff.tempDamageInfo = nil
             end
         end
     end
@@ -86,7 +91,7 @@ end
 function BuffSystem:apply_buff(buff_name, caster, target)
     local def = self.elemMgr:getBuffDefinition(buff_name)
     if not def then
-        skynet.error("[BuffSystem] no buff definition:", buff_name)
+        logger.error("[BuffSystem] no buff definition:", buff_name)
         return
     end
 
@@ -106,10 +111,16 @@ function BuffSystem:apply_buff(buff_name, caster, target)
     if existing_id then
         if overlap == "refresh" then
             self.buffs[existing_id].remaining = duration
-            skynet.error("[BuffSystem] refresh buff:", buff_name)
+            logger.info("[BuffSystem] refresh buff:", "", {
+                id = self.owner.id,
+                buff_id = existing_id
+            })
             return
         elseif overlap == "discard" then
-            skynet.error("[BuffSystem] discard new apply buff:", buff_name)
+            logger.info("[BuffSystem] discard buff:", "", {
+                id = self.owner.id,
+                buff_id = existing_id
+            })
             return
         elseif overlap == "stack" then
             -- 继续叠加 => 不移除
@@ -135,7 +146,7 @@ function BuffSystem:apply_buff(buff_name, caster, target)
         end
     end
 
-    skynet.error(string.format("[BuffSystem] apply buff:%s => target:%s", buff_name, target.id))
+    logger.info(string.format("[BuffSystem] apply buff:%s => target:%s", buff_name, target.id))
 
     if is_instant then
         -- 立即移除 => OneShot
@@ -154,7 +165,7 @@ function BuffSystem:remove_buff(buff_id, reason)
         end
     end
     self.buffs[buff_id] = nil
-    skynet.error(string.format("[BuffSystem] remove buff:%s from:%s reason:%s", bData.name, self.owner.id, reason))
+    logger.error(string.format("[BuffSystem] remove buff:%s from:%s reason:%s", bData.name, self.owner.id, reason))
 end
 
 return BuffSystem
