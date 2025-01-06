@@ -2,6 +2,7 @@
 local skynet = require "skynet"
 require "skynet.manager" -- import skynet.register
 local service_manager = require "service_manager"
+local combatRunner = require "perf_test_runner"
 
 skynet.error("package.path=", package.path)
 skynet.error("package.cpath=", package.cpath)
@@ -124,15 +125,14 @@ skynet.start(function()
         end
     end
 
-    -- 启动 battle_logic
-    local battle_logic
+    -- 启动 combatRunner 模拟器
     ok, err = pcall(function()
-        battle_logic = skynet.newservice("battle_logic")
+        combatRunner:start()
     end)
     if not ok then
-        skynet.error("[ERROR] Failed to start service: battle_logic. Reason:", err)
+        skynet.error("[ERROR] Failed to start service: combatRunner. Reason:", err)
     else
-        skynet.error("[INFO] Service 'battle_logic' started successfully with handle:", battle_logic)
+        skynet.error("[INFO] Service 'combatRunner' started successfully with handle:", combatRunner)
     end
 
     skynet.wait() -- 阻塞等待，防止main退出

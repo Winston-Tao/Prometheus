@@ -109,6 +109,8 @@ function Battle:doFrame()
             self:doFrame()
         end)
     end
+
+    -- todo 如果结束，需要执行战场结算
 end
 
 function Battle:checkEnd()

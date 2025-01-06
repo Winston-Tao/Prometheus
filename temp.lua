@@ -66,7 +66,7 @@ buff_definitions = {
             {
                 effect_type   = "hurt",
                 trigger       = "onTick",
-                tick_interval = 1,                      -- 每秒执行
+                tick_interval = 1,                      -- 每个 tick 执行
                 formula       = { "casterAttack", 1.4 } -- 伤害计算公式 1.4倍攻击伤害
             }
         }

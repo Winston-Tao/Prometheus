@@ -162,23 +162,6 @@ function CombatManager:startBattle(battle_id)
     return "ok"
 end
 
-function CombatManager:check_end(battle)
-    local hero_alive = false
-    local enemy_alive = false
-    for _, c in ipairs(battle.combatants) do
-        local hp = math.tointeger(c.attr:get("HP")) or 0
-        skynet.error(string.format("[CombatManager:check_end] Combatant Type: %s, HP: %d", c.type, hp))
-        if hp > 0 then
-            if c.type == "Hero" then
-                hero_alive = true
-            elseif c.type == "Enemy" then
-                enemy_alive = true
-            end
-        end
-    end
-    return (not hero_alive) or (not enemy_alive)
-end
-
 -- 手动施法
 function CombatManager:releaseSkill(battle_id, caster_id, skill_name, target_id)
     local battle = self:getBattle(battle_id);

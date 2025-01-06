@@ -56,25 +56,13 @@ skynet.start(function()
         while true do
             skynet.sleep(100)
             skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "PhysicalAttack", enemy_id)
-            --skynet.error("[battle_logic] hero cast FireAndHeal => enemy & self")
-            --skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "FireAndHeal", enemy_id)
-            --
-            --skynet.error("[battle_logic] hero cast FireBall => enemy")
-            --skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "FireBall", enemy_id)
-            --
-            --skynet.error("[battle_logic] hero cast BladeMailSkill")
+
             skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "BladeMailSkill", enemy_id)
             --
-            --skynet.error("[battle_logic] hero cast SpellAmplifySkill")
-            --skynet.call(manager, "lua", "release_skill", battle_id, hero_id, "SpellAmplifySkill", enemy_id)
-
             skynet.sleep(100)
             --skynet.error("[battle_logic] enemy cast PhysicalAttack")
             skynet.call(manager, "lua", "release_skill", battle_id, enemy_id, "PhysicalAttack", hero_id)
-            --skynet.error("[battle_logic] enemy cast ThornSkill")
-            --skynet.call(manager, "lua", "release_skill", battle_id, enemy_id, "ThornSkill", hero_id)
-            --skynet.error("[battle_logic] enemy cast YadonSkill")
-            --skynet.call(manager, "lua", "release_skill", battle_id, enemy_id, "YadonSkill", hero_id)
+
         end
     end)
 
