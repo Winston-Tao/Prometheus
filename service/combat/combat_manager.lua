@@ -1,9 +1,10 @@
 -- combat_manager.lua
-local skynet    = require "skynet"
-local Battle    = require "battle"
-local logger    = require "battle_logger"
-local hotlogger = require "hot_update_logger"
-local Monitor   = require "battle_monitor"
+local skynet        = require "skynet"
+local Battle        = require "battle"
+local logger        = require "battle_logger"
+local hotlogger     = require "hot_update_logger"
+local Monitor       = require "battle_monitor"
+local BattleSegment = require "battle_segment"
 
 -- 小型优先队列实现(以runTime为key)
 local function newPriorityQueue()
@@ -88,9 +89,11 @@ function CombatManager:startScheduler()
                 skynet.sleep(1)
             else
                 local now = math.floor(skynet.time() * 1000)
-                if now < top.runTime then
+                -- 允许提前 BattleSegment.TOLERANCE 执行
+                if now + BattleSegment.TOLERANCE < top.runTime then
                     -- 未到执行时间 => sleep (最小间隔=1ms)
-                    local dt = top.runTime - now
+                    local dt = top.runTime - now - BattleSegment.TOLERANCE
+                    logger.debug(string.format("[Scheduler] job skip, top.runTime=%dms", top.runTime), { "skip" })
                     if dt > 0 then
                         skynet.sleep(dt / 10) -- ms-> 0.01s
                     end
@@ -122,7 +125,15 @@ function CombatManager:createBattle(mapSize)
     local battle_id = self.next_battle_id
     self.next_battle_id = battle_id + 1
 
-    local battle = Battle:new(battle_id, mapSize, self)
+    -- 统计当前战场数量
+
+    -- todo 动态设置 估算上一秒的平均帧计算时间
+    local lastSecondAvgCalc = 10
+
+    -- 计算启动延迟
+    local delay = BattleSegment:calcStartDelay(#self.battles, lastSecondAvgCalc)
+
+    local battle = Battle:new(battle_id, mapSize, self, delay)
     self.battles[battle_id] = battle
 
     self.monitor:initBattle(battle_id)

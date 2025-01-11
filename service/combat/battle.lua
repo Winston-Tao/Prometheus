@@ -7,8 +7,23 @@ local EventDispatcher = require "event.event_dispatcher"
 local EventDef        = require "event.event_def"
 local Combatant       = require "combat.combatant"
 local ElementManager  = require "element_manager"
-local battle_params   = require "battle_params"
+local battle_params   = require "battle_segment"
 local logger          = require "battle_logger"
+
+-- 模拟 战斗 高负载计算
+local function cpu_heavy_task()
+    local count = 0
+    while true do
+        count = count + 1
+        -- 可以在这里添加一些复杂的计算以增加负载
+        local x = math.sin(count) * math.cos(count)
+        -- 可以选择适当的退出条件
+        if count > 1e4 then -- 这里设置一个退出条件，避免无限循环
+            break
+        end
+    end
+end
+
 
 local function formatTimestamp(ts)
     local sec     = math.floor(ts)
@@ -20,7 +35,7 @@ end
 local Battle   = {}
 Battle.__index = Battle
 
-function Battle:new(bid, mapSize, battleMgr)
+function Battle:new(bid, mapSize, battleMgr, delay)
     local obj = setmetatable({}, self)
     obj.id = bid
     obj.mapSize = mapSize or 10
@@ -35,10 +50,14 @@ function Battle:new(bid, mapSize, battleMgr)
     obj.tickInterval = 1
 
     -- 帧时序
-    obj.beginms = math.floor(skynet.time() * 1000) -- 可以再加startDelay
+    obj.beginms = math.floor(skynet.time() * 1000) + delay -- 可以再加startDelay
     obj.count = 0
     obj.frame_duration = battle_params.FRAME_DURATION
-    logger.info("Battle:new", "battle", { id = obj.id, time = formatTimestamp(skynet.time()) })
+    logger.info("Battle:new", "battle", {
+        id = obj.id,
+        time = formatTimestamp(skynet.time()),
+        delay = delay
+    })
     return obj
 end
 
@@ -77,13 +96,14 @@ function Battle:getNextFrameTime()
 end
 
 function Battle:doFrame()
+    local now = math.floor(skynet.time() * 1000)
     logger.info("[Battle:doFrame] begin", "battle", {
         battle_id = self.id,
         frame = self.count
     })
     if not self.is_active then return end
 
-    local now = math.floor(skynet.time() * 1000)
+
     local logic_time = self.beginms + self.count * self.frame_duration
     local deltaT = now - logic_time
 
@@ -93,12 +113,6 @@ function Battle:doFrame()
     self.eventDispatcher:publish(EventDef.EVENT_BATTLE_TICK, { battle = self })
 
     self:checkEnd()
-
-    local calcTime = math.floor(skynet.time() * 1000) - st
-    -- 回调给manager, 做统计
-    if self.frameDoneFunc then
-        self.frameDoneFunc(self.id, deltaT, calcTime)
-    end
 
     -- 若尚未结束 => 推送下一帧任务
     if self.is_active then
@@ -112,11 +126,21 @@ function Battle:doFrame()
         end)
     end
 
+    -- 先模拟计算时间
+    cpu_heavy_task()
+
     -- todo 如果结束，需要执行战场结算
 
+    local calcTime = math.floor(skynet.time() * 1000) - st
+    -- 回调给manager, 做统计
+    if self.frameDoneFunc then
+        self.frameDoneFunc(self.id, deltaT, calcTime)
+    end
 
-    -- 战场销毁
-    self.battleMgr:removeBattle(self.id)
+    if not self.is_active then
+        -- 战场销毁
+        self.battleMgr:removeBattle(self.id)
+    end
 end
 
 function Battle:checkEnd()
@@ -142,7 +166,7 @@ function Battle:checkEnd()
 end
 
 function Battle:release_skill(caster_id, skill_name, target_id)
-    logger.info("Battle:release_skill", "battle", { id = caster_id, skill_name = skill_name, target_id = target_id })
+    logger.debug("Battle:release_skill", "battle", { id = caster_id, skill_name = skill_name, target_id = target_id })
     local caster, target
     for _, c in ipairs(self.combatants) do
         if tostring(c.id) == tostring(caster_id) then
