@@ -18,14 +18,14 @@ M.battles = {
             {
                 id = 101,
                 type = "Hero",
-                attributes = { HP = 300000000, MP = 150000, Armor = 10, NT = 300 },
+                attributes = { HP = 300, MP = 150000, Armor = 10, NT = 300 },
                 skills = { "PhysicalAttack", "FireAndHeal", "FireBall",
                     "BladeMailSkill", "SpellAmplifySkill", "BloodPactSkill" }
             },
             {
                 id = 202,
                 type = "Enemy",
-                attributes = { HP = 400000000, MP = 1000, Armor = 8, NT = 500 },
+                attributes = { HP = 400, MP = 1000, Armor = 8, NT = 500 },
                 skills = { "PhysicalAttack", "ThornSkill", "YadonSkill" }
             },
         },
@@ -56,13 +56,13 @@ M.battles = {
             {
                 id = 301,
                 type = "Hero",
-                attributes = { HP = 500000000, MP = 200000, Armor = 12, NT = 300 },
+                attributes = { HP = 30, MP = 200000, Armor = 12, NT = 300 },
                 skills = { "PhysicalAttack", "BladeMailSkill" }
             },
             {
                 id = 302,
                 type = "Enemy",
-                attributes = { HP = 600000000, MP = 1500, Armor = 15, NT = 500 },
+                attributes = { HP = 400, MP = 1500, Armor = 15, NT = 500 },
                 skills = { "PhysicalAttack", "FireBall" }
             }
         },

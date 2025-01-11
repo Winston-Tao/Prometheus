@@ -1,6 +1,5 @@
 -- combat_manager.lua
 local skynet    = require "skynet"
-local Combatant = require "combat.combatant"
 local Battle    = require "battle"
 local logger    = require "battle_logger"
 local hotlogger = require "hot_update_logger"
@@ -123,7 +122,7 @@ function CombatManager:createBattle(mapSize)
     local battle_id = self.next_battle_id
     self.next_battle_id = battle_id + 1
 
-    local battle = Battle:new(battle_id, mapSize)
+    local battle = Battle:new(battle_id, mapSize, self)
     self.battles[battle_id] = battle
 
     self.monitor:initBattle(battle_id)
@@ -136,6 +135,10 @@ end
 
 function CombatManager:removeBattle(bid)
     self.battles[bid] = nil
+    self.monitor:removeBattle(bid)
+    logger.info("[CombatManager:destory Battle]", "battle", {
+        battle_id = bid
+    })
 end
 
 function CombatManager:startBattle(battle_id)
@@ -146,7 +149,7 @@ function CombatManager:startBattle(battle_id)
             self:addJob(taskRunTime, taskFunc)
         end,
         function(bid, deltaT, calcTime)
-            self.monitor:updateStats(bid, deltaT, calcTime)
+            self.monitor:updateStats(bid, deltaT, calcTime, b)
         end)
 
     b.is_active = true
@@ -165,7 +168,13 @@ end
 -- 手动施法
 function CombatManager:releaseSkill(battle_id, caster_id, skill_name, target_id)
     local battle = self:getBattle(battle_id);
-    battle:release_skill(caster_id, skill_name, target_id)
+    if battle then
+        battle:release_skill(caster_id, skill_name, target_id)
+    else
+        logger.warn("[CombatManager:releaseSkill battle destroyed]", "battle", {
+            battle_id = battle_id
+        })
+    end
 end
 
 ---------------------------------------------------------------------------------

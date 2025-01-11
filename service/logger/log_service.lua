@@ -27,10 +27,17 @@ function CMD.init()
     logger:addHandler(battleInfoHandler)
 
     -- 2) hotUpdateHandler => ai.log
-    local hotUpdateHandler       = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/hotUpdate")
+    local hotUpdateHandler       = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/hotUpdate_")
     local hotUpdateHandlerFilter = ModuleFilter:new { ["hotUpdate"] = true }
     hotUpdateHandler:addFilter(hotUpdateHandlerFilter)
     logger:addHandler(hotUpdateHandler)
+
+
+    -- battle_monitor => battle_monitor.log
+    local battleMonitorHandler = FileHandler:new(baseFormatter, LogLevel.DEBUG, "logs/battle_monitor_")
+    local battleMonitorFilter  = ModuleFilter:new { ["battle_monitor"] = true }
+    battleMonitorHandler:addFilter(battleMonitorFilter)
+    logger:addHandler(battleMonitorHandler)
 
     -- 3) 其他通用 => game.log
     local generalHandler = FileHandler:new(baseFormatter, LogLevel.INFO, "logs/game.log")

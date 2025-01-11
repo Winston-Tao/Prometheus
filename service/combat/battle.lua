@@ -20,12 +20,13 @@ end
 local Battle   = {}
 Battle.__index = Battle
 
-function Battle:new(bid, mapSize)
+function Battle:new(bid, mapSize, battleMgr)
     local obj = setmetatable({}, self)
     obj.id = bid
     obj.mapSize = mapSize or 10
     obj.combatants = {}
     obj.is_active = false
+    obj.battleMgr = battleMgr
 
     -- 事件
     obj.eventDispatcher = EventDispatcher:new("sync")
@@ -67,6 +68,7 @@ function Battle:addCombatant(combatant)
         attributes = realCom.ttributes,
         skills = realCom.skills,
     })
+    self.battleMgr.monitor:updateCombatantCount(self.id, #self.combatants)
     return realCom
 end
 
@@ -111,6 +113,10 @@ function Battle:doFrame()
     end
 
     -- todo 如果结束，需要执行战场结算
+
+
+    -- 战场销毁
+    self.battleMgr:removeBattle(self.id)
 end
 
 function Battle:checkEnd()
