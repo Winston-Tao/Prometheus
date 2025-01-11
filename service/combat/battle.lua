@@ -51,6 +51,8 @@ function Battle:new(bid, mapSize, battleMgr, delay)
 
     -- 帧时序
     obj.beginms = math.floor(skynet.time() * 1000) + delay -- 可以再加startDelay
+    -- -- 预估执行时间(可随执行测量更新)
+    obj.wcet = obj.beginms
     obj.count = 0
     obj.frame_duration = battle_params.FRAME_DURATION
     logger.info("Battle:new", "battle", {
@@ -103,9 +105,7 @@ function Battle:doFrame()
     })
     if not self.is_active then return end
 
-
-    local logic_time = self.beginms + self.count * self.frame_duration
-    local deltaT = now - logic_time
+    local deltaT = now - self.wcet
 
     local st = now
     self.count = self.count + 1
@@ -124,6 +124,7 @@ function Battle:doFrame()
         self.pushTaskFunc(nextFrameTime, function()
             self:doFrame()
         end)
+        self.wcet = nextFrameTime
     end
 
     -- 先模拟计算时间

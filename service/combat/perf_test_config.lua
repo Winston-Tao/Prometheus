@@ -5,7 +5,7 @@ local M = {}
 
 -- 全局配置
 M.global = {
-    battle_count = 30, -- 要创建的战场数量
+    battle_count = 50, -- 要创建的战场数量
     tick_interval = 50,     -- 每隔多少tick(1=0.01s)释放技能(默认0.5秒)
 }
 
