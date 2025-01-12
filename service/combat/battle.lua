@@ -17,6 +17,8 @@ local function cpu_heavy_task()
         count = count + 1
         -- 可以在这里添加一些复杂的计算以增加负载
         local x = math.sin(count) * math.cos(count)
+        local y = math.sin(count) / math.cos(count)
+        local c = x * y
         -- 可以选择适当的退出条件
         if count > 1e4 then -- 这里设置一个退出条件，避免无限循环
             break

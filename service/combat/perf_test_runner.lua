@@ -8,18 +8,17 @@ local runner = {}
 function runner:start()
     skynet.error("[perf_test_runner] start...")
 
-    -- 1) 分配 combat_manager, 只需一次 or 每battle一个
-    -- 假设已存在一个 router_manager 负责分配
-    local manager = skynet.call(".serverRouter", "lua", "allocate_instance", "combat_manager")
-    if not manager then
-        skynet.error("[perf_test_runner] no available combat_manager!")
-        skynet.exit()
-        return
-    end
-    skynet.error("[perf_test_runner] allocated manager =>", manager)
-
     -- 2) 批量创建battle
     for idx = 1, config.global.battle_count do
+        -- 1) 分配 combat_manager, 只需一次 or 每battle一个
+        -- 假设已存在一个 router_manager 负责分配
+        local manager = skynet.call(".serverRouter", "lua", "allocate_instance", "combat_manager")
+        if not manager then
+            skynet.error("[perf_test_runner] no available combat_manager!")
+            goto continue
+        end
+        skynet.error("[perf_test_runner] allocated manager =>", manager)
+
         local battleIndex = (idx - 1) % #config.battles + 1
         local battleCfg = config.battles[battleIndex]
         -- 继续处理 battleCfg...

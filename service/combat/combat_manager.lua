@@ -6,6 +6,7 @@ local hotlogger     = require "hot_update_logger"
 local Monitor       = require "battle_monitor"
 local BattleSegment = require "battle_segment"
 local PriorityQueue = require "priority_queue"
+local ProFi         = require "profi"
 
 -- 小型优先队列实现(以runTime为key)
 local function newPriorityQueue()
@@ -208,6 +209,7 @@ end
 
 function CMD.create_battle(mgr, mapSize)
     local bid = mgr:createBattle(mapSize)
+    skynet.send(".serverRouter", "lua", "acquire_load", "combat_manager", skynet.self())
     skynet.retpack(bid)
 end
 
@@ -230,6 +232,7 @@ end
 
 function CMD.destroy_battle(mgr, bid)
     mgr:removeBattle(bid)
+    skynet.send(".serverRouter", "lua", "release_load", "combat_manager", skynet.self())
     skynet.retpack("ok")
 end
 
@@ -270,8 +273,12 @@ skynet.start(function()
             skynet.ret()
         end
     end)
-    -- 启动时自动订阅热更服务
-    CMD.subscribe_to_hotfix()
-
+    ProFi:start()
+    ProFi:setGetTimeMethod(skynet.now)
+    skynet.fork(function()
+        skynet.sleep(100 * 15)
+        ProFi:stop()
+        ProFi:writeReport('combatCpu.txt')
+    end)
     skynet.error("[combat_manager] Service started.")
 end)

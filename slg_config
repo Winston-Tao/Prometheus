@@ -5,6 +5,7 @@ thread = 8
 logger = "logs/skynet.log"   -- 输出到 logs/skynet.log
 logpath = "./logs"           -- 日志存储目录
 harbor = 1
+profile = 1
 address = "127.0.0.1:2526"
 master = "127.0.0.1:2013"
 start = "slg_server"	-- main script

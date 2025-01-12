@@ -360,7 +360,7 @@ battle_data.instant_buffs        = {
                 effect_type = "hurt",
                 trigger     = TriggerDef.TRIGGERS.ON_APPLY,
                 damage_type = DamageDef.DAMAGES.PHYSICAL,
-                base_damage = 50
+                base_damage = 5
             }
         }
     },

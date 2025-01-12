@@ -5,8 +5,8 @@ local M = {}
 
 -- 全局配置
 M.global = {
-    battle_count = 50, -- 要创建的战场数量
-    tick_interval = 50,     -- 每隔多少tick(1=0.01s)释放技能(默认0.5秒)
+    battle_count = 100, -- 要创建的战场数量
+    tick_interval = 50, -- 每隔多少tick(1=0.01s)释放技能(默认0.5秒)
 }
 
 -- 对每个battle的配置
@@ -18,14 +18,14 @@ M.battles = {
             {
                 id = 101,
                 type = "Hero",
-                attributes = { HP = 1e5, MP = 150000, Armor = 10, NT = 300 },
+                attributes = { HP = 1e7, MP = 150000, Armor = 10, NT = 300 },
                 skills = { "PhysicalAttack", "FireAndHeal", "FireBall",
                     "BladeMailSkill", "SpellAmplifySkill", "BloodPactSkill" }
             },
             {
                 id = 202,
                 type = "Enemy",
-                attributes = { HP = 1e5, MP = 1000, Armor = 8, NT = 500 },
+                attributes = { HP = 1e7, MP = 1000, Armor = 8, NT = 500 },
                 skills = { "PhysicalAttack", "ThornSkill", "YadonSkill" }
             },
         },

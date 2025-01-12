@@ -15,6 +15,10 @@ skynet.start(function()
 
     skynet.newservice("debug_console", 8000)
 
+    --skynet.uniqueservice("profi_ser")
+    --
+    --skynet.call(".profi_ser", "lua", "start_profile")
+
     skynet.uniqueservice("log_service")
 
     -- 启动lua热更新服务
@@ -111,7 +115,7 @@ skynet.start(function()
     end
 
     -- 启动多个 combat_manager -- 先值启动一个测试
-    for i = 1, 1 do
+    for i = 1, 10 do
         local combat_manager
         ok, err = pcall(function()
             combat_manager = skynet.newservice("combat_manager")
