@@ -5,6 +5,7 @@ local logger        = require "battle_logger"
 local hotlogger     = require "hot_update_logger"
 local Monitor       = require "battle_monitor"
 local BattleSegment = require "battle_segment"
+local PriorityQueue = require "priority_queue"
 
 -- 小型优先队列实现(以runTime为key)
 local function newPriorityQueue()
@@ -66,7 +67,9 @@ function CombatManager:new(manager_id)
     obj.monitor        = Monitor:new() -- 用于统计
 
     -- 任务队列(按runTime升序)
-    obj.taskQueue      = newPriorityQueue()
+    --obj.taskQueue      = cpriorityqueue.create(128)
+    obj.taskQueue      = PriorityQueue:new(128)
+
     obj.running        = false
 
     -- 启动任务调度器
