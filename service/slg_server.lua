@@ -2,8 +2,8 @@
 local skynet = require "skynet"
 require "skynet.manager" -- import skynet.register
 local service_manager = require "service_manager"
-local combatRunner = require "perf_test_runner"
-
+local combatRunner    = require "perf_test_runner"
+local profiler        = require "cpp_profiler"
 skynet.error("package.path=", package.path)
 skynet.error("package.cpath=", package.cpath)
 
@@ -115,7 +115,7 @@ skynet.start(function()
     end
 
     -- 启动多个 combat_manager -- 先值启动一个测试
-    for i = 1, 10 do
+    for i = 1, 1 do
         local combat_manager
         ok, err = pcall(function()
             combat_manager = skynet.newservice("combat_manager")
@@ -139,7 +139,7 @@ skynet.start(function()
         skynet.error("[INFO] Service 'combatRunner' started successfully with handle:", combatRunner)
     end
 
-    skynet.wait() -- 阻塞等待，防止main退出
+    skynet.wait()       -- 阻塞等待，防止main退出
 end)
 
 

@@ -7,6 +7,7 @@ local Monitor       = require "battle_monitor"
 local BattleSegment = require "battle_segment"
 local PriorityQueue = require "priority_queue"
 local ProFi         = require "profi"
+local profiler      = require "cpp_profiler"
 
 -- 小型优先队列实现(以runTime为key)
 local function newPriorityQueue()
@@ -261,6 +262,7 @@ end
 --------------------------------------------------------------------------------
 skynet.start(function()
     manager = CombatManager:new(nil)
+    --profiler.start(0, "cpu_profile_battle.data")
     -- 注册自己到router
     skynet.send(".serverRouter", "lua", "register_service", "combat_manager", skynet.self())
     skynet.error("combat_manager-register_service-success")
@@ -273,12 +275,17 @@ skynet.start(function()
             skynet.ret()
         end
     end)
+
     ProFi:start()
     ProFi:setGetTimeMethod(skynet.now)
     skynet.fork(function()
-        skynet.sleep(100 * 15)
+        skynet.sleep(100 * 60 * 3)
         ProFi:stop()
         ProFi:writeReport('combatCpu.txt')
+    end)
+    skynet.fork(function()
+        skynet.sleep(100 * 60)
+        --profiler.stop() -- flush
     end)
     skynet.error("[combat_manager] Service started.")
 end)

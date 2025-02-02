@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+// 顶层消息: BattleFrame
+// 每帧都会下发的“容器”
+message BattleFrame {
+  // 每帧唯一ID
+  int64 frame_id = 1;
+  // 服务器开始时间 (可用毫秒/秒)
+  int64 server_start_time = 2;
+  // 表示该帧是否是起始(begin)或者结束(end) => true=begin, false=end
+  bool  begin_or_end = 3;
+
+  // 场景事件
+  repeated SceneEventNtf scene_events = 4;
+  // 实体属性更新
+  repeated WorldEntityNtf entity_updates = 5;
+}
+
+// 场景事件通知
+message SceneEventNtf {
+  // 事件类型ID or 枚举
+  // 也可用oneof，但一般我们用 enum + oneof event_data
+  int32 event_type = 1;
+  // 具体事件数据
+  oneof event_data {
+    // 可以基于 event_type 来解析/映射
+    SkillCastEvent     skill_cast = 10;
+    SkillInterruptEvent skill_interrupt = 11;
+    DamageEvent        damage = 12;
+    // ...后续可以自由添加
+  }
+}
+
+// 技能施放事件
+message SkillCastEvent {
+  // 施法者ID
+  int64 caster_id = 1;
+  // 技能ID
+  int32 skill_id = 2;
+  // 目标(可能多个)
+  repeated int64 targets = 3;
+  // 技能范围(如半径、坐标等)
+  float  range = 4;
+  // 其他字段...
+}
+
+// 技能打断事件
+message SkillInterruptEvent {
+  int64 interrupter_id = 1;
+  int64 be_interrupted_id = 2;
+  int32 reason = 3; // 可能是 "stun" or "knockback", etc.
+}
+
+// 伤害事件
+message DamageEvent {
+  int64 source_id = 1;
+  repeated int64 target_ids = 2;
+  float damage_value = 3;
+  // 伤害类型(物理/魔法/真实...)
+  int32 damage_type = 4;
+  // ...
+}
+
+// 世界实体通知
+// 例如每个Combatant都要下发若干属性
+message WorldEntityNtf {
+  int64 entity_id = 1; // 该实体的唯一ID
+  // 该实体本帧要更新的属性
+  repeated AttrUpdate attr_updates = 2;
+  // 也可添加 entity_type, or is_dead, etc.
+}
+
+// 单个属性更新
+message AttrUpdate {
+  // 具体属性类型，如 HP=1, MP=2, ATTACK=10, ...
+  int32 attr_type = 1;
+  // 由于各属性类型不确定, 采用oneof
+  oneof attr_value {
+    int64  v_int = 2;
+    float  v_float = 3;
+    string v_str = 4;
+    // 也可扩展 message v_struct = 5;
+  }
+}
